@@ -1,0 +1,642 @@
+----- Page 1 -----
+HB 3
+2024
+
+CODING: Words stricken are deletions; words underlined are additions.
+
+hb0003-00
+
+Page 1 of 6
+
+F
+L
+O
+R
+I
+D
+A
+H
+O
+U
+S
+E
+O
+F
+R
+E
+P
+R
+E
+S
+E
+N
+T
+A
+T
+I
+V
+E
+S
+
+A bill to be entitled
+1
+
+An act relating to online access to materials harmful
+2
+
+to minors; creating s. 501.1737, F.S.; providing
+3
+
+definitions; requiring a commercial entity that
+4
+
+publishes or distributes material harmful to minors on
+5
+
+a website or application that contains a substantial
+6
+
+portion of such material to perform reasonable age
+7
+
+verification methods, prevent access to such material
+8
+
+by minors, and provide methods for reporting
+9
+
+unauthorized or unlawful access; prohibiting the
+10
+
+retention of certain personal identifying information;
+11
+
+providing applicability and construction; authorizing
+12
+
+the Department of Legal Affairs to bring an action for
+13
+
+violations under the Florida Deceptive and Unfair
+14
+
+Trade Practices Act; providing civil penalties;
+15
+
+providing for private causes of action; providing that
+16
+
+certain commercial entities are subject to the
+17
+
+jurisdiction of state courts; providing construction;
+18
+
+authorizing the department to adopt rules; providing
+19
+
+an effective date.
+20
+
+21
+
+Be It Enacted by the Legislature of the State of Florida:
+22
+
+23
+
+Section 1. Section 501.1737, Florida Statutes, is created
+24
+
+to read:
+25
+
+----- Page 2 -----
+HB 3
+2024
+
+CODING: Words stricken are deletions; words underlined are additions.
+
+hb0003-00
+
+Page 2 of 6
+
+F
+L
+O
+R
+I
+D
+A
+H
+O
+U
+S
+E
+O
+F
+R
+E
+P
+R
+E
+S
+E
+N
+T
+A
+T
+I
+V
+E
+S
+
+501.1737 Age verification for online access to materials
+26
+
+harmful to minors.—
+27
+
+(1) As used in this section, the term:
+28
+
+(a) "Commercial entity" includes a corporation, limited
+29
+
+liability company, partnership, limited partnership, sole
+30
+
+proprietorship, and any other legally recognized entity.
+31
+
+(b) "Department" means the Department of Legal Affairs.
+32
+
+(c) "Distribute" means to issue, sell, give, provide,
+33
+
+deliver, transfer, transmute, circulate, or disseminate by any
+34
+
+means.
+35
+
+(d) "Material harmful to minors" means any material that:
+36
+
+1. The average person applying contemporary community
+37
+
+standards would find, taken as a whole, appeals to the prurient
+38
+
+interest;
+39
+
+2. Depicts or describes, in a patently offensive way,
+40
+
+sexual conduct as specifically defined in s. 847.001(19); and
+41
+
+3. When taken as a whole, lacks serious literary,
+42
+
+artistic, political, or scientific value for minors.
+43
+
+(e) "News-gathering organization" means any of the
+44
+
+following:
+45
+
+1. A newspaper, news publication, or news source, printed
+46
+
+or published online or on a mobile platform, engaged in
+47
+
+reporting current news and matters of public interest, and
+48
+
+includes an employee who can provide documentation of such
+49
+
+employment.
+50
+
+----- Page 3 -----
+HB 3
+2024
+
+CODING: Words stricken are deletions; words underlined are additions.
+
+hb0003-00
+
+Page 3 of 6
+
+F
+L
+O
+R
+I
+D
+A
+H
+O
+U
+S
+E
+O
+F
+R
+E
+P
+R
+E
+S
+E
+N
+T
+A
+T
+I
+V
+E
+S
+
+2. A radio broadcast station, television broadcast
+51
+
+station, cable television operator, or wire service, and
+52
+
+includes an employee who can provide documentation of such
+53
+
+employment.
+54
+
+(f) "Publish" means to communicate or make information
+55
+
+available to another person or entity on a publicly available
+56
+
+website or application.
+57
+
+(g) "Reasonable age verification methods" means any
+58
+
+commercially reasonable method regularly used by government
+59
+
+agencies or businesses for the purpose of age and identity
+60
+
+verification.
+61
+
+(h) "Substantial portion" means more than 33.3 percent of
+62
+
+total material on a website or application.
+63
+
+(2) A commercial entity that knowingly and intentionally
+64
+
+publishes or distributes material harmful to minors on a website
+65
+
+or application, if the website or application contains a
+66
+
+substantial portion of material harmful to minors, must:
+67
+
+(a) Perform reasonable age verification methods to verify
+68
+
+the age of a person attempting to access the material is 18
+69
+
+years of age or older and prevent access to the material by a
+70
+
+person younger than 18 years of age. The reasonable age
+71
+
+verification method must be conducted by an independent third-
+72
+
+party not affiliated with the commercial entity.
+73
+
+(b) Provide an easily accessible link or function on its
+74
+
+homepage, landing page, or age verification page to allow a
+75
+
+----- Page 4 -----
+HB 3
+2024
+
+CODING: Words stricken are deletions; words underlined are additions.
+
+hb0003-00
+
+Page 4 of 6
+
+F
+L
+O
+R
+I
+D
+A
+H
+O
+U
+S
+E
+O
+F
+R
+E
+P
+R
+E
+S
+E
+N
+T
+A
+T
+I
+V
+E
+S
+
+minor user or the confirmed parent or guardian of a minor user
+76
+
+to report unauthorized or unlawful access. Within 5 days after
+77
+
+such report, the commercial entity must prohibit or block future
+78
+
+access by such minor.
+79
+
+(3) A commercial entity or third party that performs
+80
+
+reasonable age verification methods may not retain any personal
+81
+
+identifying information of the person seeking online access to
+82
+
+material harmful to minors any longer than is reasonably
+83
+
+necessary to verify the age of the person. Any personal
+84
+
+identifying information collected for age verification may not
+85
+
+be used for any other purpose.
+86
+
+(4)(a) This section does not apply to any bona fide news
+87
+
+or public interest broadcast, website video, report, or event
+88
+
+and does not affect the rights of a news-gathering organization.
+89
+
+(b) An Internet service provider or its affiliates or
+90
+
+subsidiaries, a search engine, or a cloud service provider does
+91
+
+not violate this section solely for providing access or
+92
+
+connection to or from a website or other information or content
+93
+
+on the Internet or a facility, system, or network not under the
+94
+
+provider's control, including transmission, downloading,
+95
+
+intermediate storage, or access software, to the extent the
+96
+
+provider is not responsible for the creation of the content of
+97
+
+the communication which constitutes material harmful to minors.
+98
+
+(5)(a) Any violation of subsection (2) or subsection (3)
+99
+
+is an unfair and deceptive trade practice actionable under part
+100
+
+----- Page 5 -----
+HB 3
+2024
+
+CODING: Words stricken are deletions; words underlined are additions.
+
+hb0003-00
+
+Page 5 of 6
+
+F
+L
+O
+R
+I
+D
+A
+H
+O
+U
+S
+E
+O
+F
+R
+E
+P
+R
+E
+S
+E
+N
+T
+A
+T
+I
+V
+E
+S
+
+II of this chapter solely by the department on behalf of a
+101
+
+Florida minor against a commercial entity. If the department has
+102
+
+reason to believe that a commercial entity is in violation of
+103
+
+subsection (2) or subsection (3), the department, as the
+104
+
+enforcing authority, may bring an action against the commercial
+105
+
+entity for an unfair or deceptive act or practice. For the
+106
+
+purpose of bringing an action pursuant to this section, ss.
+107
+
+501.211 and 501.212 do not apply. In addition to any other
+108
+
+remedy under part II of this chapter, the department may collect
+109
+
+a civil penalty of up to $50,000 per violation of this section.
+110
+
+(b) A commercial entity that violates subsection (2) for
+111
+
+failing to prohibit or block a minor from future access to
+112
+
+material harmful to minors after a report of unauthorized or
+113
+
+unlawful access is liable to the minor for such access,
+114
+
+including court costs and reasonable attorney fees as ordered by
+115
+
+the court. Claimants may be awarded up to $10,000 in damages. A
+116
+
+civil action for a claim under this paragraph must be brought
+117
+
+within 1 year after the violation.
+118
+
+(c) Any action under this subsection may only be brought
+119
+
+on behalf of or by a Florida minor.
+120
+
+(6) For purposes of bringing an action under subsection
+121
+
+(5), a commercial entity that publishes or distributes material
+122
+
+harmful to minors on a website or application, if the website or
+123
+
+application contains a substantial portion of material harmful
+124
+
+to minors and such website or application is available to be
+125
+
+----- Page 6 -----
+HB 3
+2024
+
+CODING: Words stricken are deletions; words underlined are additions.
+
+hb0003-00
+
+Page 6 of 6
+
+F
+L
+O
+R
+I
+D
+A
+H
+O
+U
+S
+E
+O
+F
+R
+E
+P
+R
+E
+S
+E
+N
+T
+A
+T
+I
+V
+E
+S
+
+accessed in Florida, is considered to be both engaged in
+126
+
+substantial and not isolated activities within this state and
+127
+
+operating, conducting, engaging in, or carrying on a business
+128
+
+and doing business in this state, and is therefore subject to
+129
+
+the jurisdiction of the courts of this state.
+130
+
+(7) This section does not preclude any other available
+131
+
+remedy at law or equity.
+132
+
+(8) The department may adopt rules to implement this
+133
+
+section.
+134
+
+Section 2. This act shall take effect July 1, 2024.
+135

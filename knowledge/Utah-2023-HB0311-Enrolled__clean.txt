@@ -1,0 +1,1138 @@
+----- Page 1 -----
+Enrolled Copy
+H.B. 311
+
+1
+SOCIAL MEDIA USAGE AMENDMENTS
+
+2
+2023 GENERAL SESSION
+
+3
+STATE OF UTAH
+
+4
+Chief Sponsor: Jordan D. Teuscher
+
+5
+Senate Sponsor: Kirk A. Cullimore
+
+6
+Cosponsors:
+
+7
+Cheryl K. Acton
+
+8
+Carl R. Albrecht
+
+9
+Melissa G. Ballard
+
+10
+Stewart E. Barlow
+
+11
+Gay Lynn Bennion
+
+12
+Bridger Bolinder
+
+13
+Brady Brammer
+
+14
+Joel K. Briscoe
+
+15
+Jefferson S. Burton
+
+16
+Kay J. Christofferson
+
+17
+Tyler Clancy
+
+18
+James Cobb
+
+19
+Paul A. Cutler
+
+20
+Jennifer Dailey-Provost
+
+Joseph Elison
+
+Katy Hall
+
+Jon Hawkins
+
+Ken Ivory
+
+Colin W. Jack
+
+Tim Jimenez
+
+Dan N. Johnson
+
+Marsha Judkins
+
+Brian S. King
+
+Michael L. Kohler
+
+Quinn Kotter
+
+Trevor Lee
+
+Anthony E. Loubet
+
+Steven J. Lund
+
+Ashlee Matthews
+
+Carol S. Moss
+
+Doug Owens
+
+Thomas W. Peterson
+
+Candice B. Pierucci
+
+Susan Pulsipher
+
+Angela Romero
+
+Robert M. Spendlove
+
+Keven J. Stratton
+
+Mark A. Strong
+
+R. Neil Walter
+
+Mark A. Wheatley
+
+Stephen L. Whyte
+
+21
+
+22
+LONG TITLE
+
+23
+General Description:
+
+24
+This bill regulates social media companies and the use and design of social media
+
+25
+platforms.
+
+26
+Highlighted Provisions:
+
+27
+This bill:
+
+----- Page 2 -----
+H.B. 311
+
+Enrolled Copy
+
+- 2 -
+
+28
+�
+defines terms;
+
+29
+�
+enacts the Utah Social Media Regulation Act;
+
+30
+�
+prohibits a social media company from using a design or feature that causes a minor
+
+31
+to have an addiction to the company's social media platform;
+
+32
+�
+grants the Division of Consumer Protection enforcement and auditing authority to
+
+33
+enforce requirements under the act;
+
+34
+�
+authorizes a private right of action to collect attorney fees and damages from a
+
+35
+social media company for harm incurred by a minor's use of the company's social
+
+36
+media platform;
+
+37
+�
+creates a rebuttable presumption that harm and causation occurred in some
+
+38
+circumstances;
+
+39
+�
+prohibits certain waivers;
+
+40
+�
+provides a severability clause; and
+
+41
+�
+makes technical and conforming changes.
+
+42
+Money Appropriated in this Bill:
+
+43
+None
+
+44
+Other Special Clauses:
+
+45
+This bill provides a special effective date.
+
+46
+Utah Code Sections Affected:
+
+47
+AMENDS:
+
+48
+13-2-1 (Superseded 12/31/23), as last amended by Laws of Utah 2022, Chapter 201
+
+49
+13-2-1 (Effective 12/31/23), as last amended by Laws of Utah 2022, Chapters 201, 462
+
+50
+ENACTS:
+
+51
+13-63-101, Utah Code Annotated 1953
+
+52
+13-63-201, Utah Code Annotated 1953
+
+53
+13-63-301, Utah Code Annotated 1953
+
+54
+13-63-401, Utah Code Annotated 1953
+
+----- Page 3 -----
+Enrolled Copy
+H.B. 311
+
+- 3 -
+
+55
+13-63-501, Utah Code Annotated 1953
+
+56
+
+57
+Be it enacted by the Legislature of the state of Utah:
+
+58
+Section 1. Section 13-2-1 (Superseded 12/31/23) is amended to read:
+
+59
+TITLE 13. COMMERCE AND TRADE
+
+60
+13-2-1 (Superseded 12/31/23). Consumer protection division established --
+
+61
+Functions.
+
+62
+(1) There is established within the Department of Commerce the Division of Consumer
+
+63
+Protection.
+
+64
+(2) The division shall administer and enforce the following:
+
+65
+(a) Chapter 5, Unfair Practices Act;
+
+66
+(b) Chapter 10a, Music Licensing Practices Act;
+
+67
+(c) Chapter 11, Utah Consumer Sales Practices Act;
+
+68
+(d) Chapter 15, Business Opportunity Disclosure Act;
+
+69
+(e) Chapter 20, New Motor Vehicle Warranties Act;
+
+70
+(f) Chapter 21, Credit Services Organizations Act;
+
+71
+(g) Chapter 22, Charitable Solicitations Act;
+
+72
+(h) Chapter 23, Health Spa Services Protection Act;
+
+73
+(i) Chapter 25a, Telephone and Facsimile Solicitation Act;
+
+74
+(j) Chapter 26, Telephone Fraud Prevention Act;
+
+75
+(k) Chapter 28, Prize Notices Regulation Act;
+
+76
+(l) Chapter 32a, Pawnshop, Secondhand Merchandise, and Catalytic Converter
+
+77
+Transaction Information Act;
+
+78
+(m) Chapter 34, Utah Postsecondary Proprietary School Act;
+
+79
+(n) Chapter 34a, Utah Postsecondary School State Authorization Act;
+
+80
+(o) Chapter 41, Price Controls During Emergencies Act;
+
+81
+(p) Chapter 42, Uniform Debt-Management Services Act;
+
+----- Page 4 -----
+H.B. 311
+
+Enrolled Copy
+
+- 4 -
+
+82
+(q) Chapter 49, Immigration Consultants Registration Act;
+
+83
+(r) Chapter 51, Transportation Network Company Registration Act;
+
+84
+(s) Chapter 52, Residential Solar Energy Disclosure Act;
+
+85
+(t) Chapter 53, Residential, Vocational and Life Skills Program Act;
+
+86
+(u) Chapter 54, Ticket Website Sales Act;
+
+87
+(v) Chapter 56, Ticket Transferability Act; [and]
+
+88
+(w) Chapter 57, Maintenance Funding Practices Act[.]; and
+
+89
+(x) Chapter 63, Utah Social Media Regulation Act.
+
+90
+Section 2. Section 13-2-1 (Effective 12/31/23) is amended to read:
+
+91
+13-2-1 (Effective 12/31/23). Consumer protection division established --
+
+92
+Functions.
+
+93
+(1) There is established within the Department of Commerce the Division of Consumer
+
+94
+Protection.
+
+95
+(2) The division shall administer and enforce the following:
+
+96
+(a) Chapter 5, Unfair Practices Act;
+
+97
+(b) Chapter 10a, Music Licensing Practices Act;
+
+98
+(c) Chapter 11, Utah Consumer Sales Practices Act;
+
+99
+(d) Chapter 15, Business Opportunity Disclosure Act;
+
+100
+(e) Chapter 20, New Motor Vehicle Warranties Act;
+
+101
+(f) Chapter 21, Credit Services Organizations Act;
+
+102
+(g) Chapter 22, Charitable Solicitations Act;
+
+103
+(h) Chapter 23, Health Spa Services Protection Act;
+
+104
+(i) Chapter 25a, Telephone and Facsimile Solicitation Act;
+
+105
+(j) Chapter 26, Telephone Fraud Prevention Act;
+
+106
+(k) Chapter 28, Prize Notices Regulation Act;
+
+107
+(l) Chapter 32a, Pawnshop, Secondhand Merchandise, and Catalytic Converter
+
+108
+Transaction Information Act;
+
+----- Page 5 -----
+Enrolled Copy
+H.B. 311
+
+- 5 -
+
+109
+(m) Chapter 34, Utah Postsecondary Proprietary School Act;
+
+110
+(n) Chapter 34a, Utah Postsecondary School State Authorization Act;
+
+111
+(o) Chapter 41, Price Controls During Emergencies Act;
+
+112
+(p) Chapter 42, Uniform Debt-Management Services Act;
+
+113
+(q) Chapter 49, Immigration Consultants Registration Act;
+
+114
+(r) Chapter 51, Transportation Network Company Registration Act;
+
+115
+(s) Chapter 52, Residential Solar Energy Disclosure Act;
+
+116
+(t) Chapter 53, Residential, Vocational and Life Skills Program Act;
+
+117
+(u) Chapter 54, Ticket Website Sales Act;
+
+118
+(v) Chapter 56, Ticket Transferability Act;
+
+119
+(w) Chapter 57, Maintenance Funding Practices Act; [and]
+
+120
+(x) Chapter 61, Utah Consumer Privacy Act[.]; and
+
+121
+(y) Chapter 63, Utah Social Media Regulation Act.
+
+122
+Section 3. Section 13-63-101 is enacted to read:
+
+123
+CHAPTER 63. UTAH SOCIAL MEDIA REGULATION ACT
+
+124
+Part 1. General Requirements
+
+125
+13-63-101. Definitions.
+
+126
+As used in this chapter:
+
+127
+(1) "Account holder" means a person who has, or opens, an account or profile to use a
+
+128
+social media company's platform.
+
+129
+(2) "Addiction" means use of a social media platform that:
+
+130
+(a) indicates the user's substantial preoccupation or obsession with, or the user's
+
+131
+substantial difficulty to cease or reduce use of, the social media platform; and
+
+132
+(b) causes physical, mental, emotional, developmental, or material harms to the user.
+
+133
+(3) "Director" means the director of the Division of Consumer Protection created in
+
+134
+Section 13-2-1.
+
+135
+(4) "Division" means the Division of Consumer Protection created in Section 13-2-1.
+
+----- Page 6 -----
+H.B. 311
+
+Enrolled Copy
+
+- 6 -
+
+136
+(5) "Educational entity" means a public school, an LEA, a charter school, the Utah
+
+137
+Schools for the Deaf and Blind, a private school, a denominational school, a parochial school, a
+
+138
+community college, a state college, a state university, or a nonprofit private postsecondary
+
+139
+educational institution.
+
+140
+(6) (a) "Interactive computer service" means an information service, information
+
+141
+system, or information access software provider that:
+
+142
+(i) provides or enables computer access by multiple users to a computer server; and
+
+143
+(ii) provides access to the Internet.
+
+144
+(b) "Interactive computer service" includes:
+
+145
+(i) a web service;
+
+146
+(ii) a web system;
+
+147
+(iii) a website;
+
+148
+(iv) a web application; or
+
+149
+(v) a web portal.
+
+150
+(7) "Minor" means an individual who is under the age of 18 and:
+
+151
+(a) has not been emancipated as that term is defined in Section 80-7-102; or
+
+152
+(b) has not been married.
+
+153
+(8) "Post" means content that an account holder makes available on a social media
+
+154
+platform for other account holders or users to view.
+
+155
+(9) "Social media company" means a person or entity that:
+
+156
+(a) provides a social media platform that has at least 5,000,000 account holders
+
+157
+worldwide; and
+
+158
+(b) is an interactive computer service.
+
+159
+(10) (a) "Social media platform" means an online forum that a social media company
+
+160
+makes available for an account holder to:
+
+161
+(i) create a profile;
+
+162
+(ii) upload posts;
+
+----- Page 7 -----
+Enrolled Copy
+H.B. 311
+
+- 7 -
+
+163
+(iii) view the posts of other account holders; and
+
+164
+(iv) interact with other account holders or users.
+
+165
+(b) "Social media platform" does not include an online service, website, or application:
+
+166
+(i) where the predominant or exclusive function is:
+
+167
+(A) electronic mail;
+
+168
+(B) direct messaging consisting of text, photos, or videos that are sent between devices
+
+169
+by electronic means, where messages are:
+
+170
+(I) shared between the sender and the recipient;
+
+171
+(II) only visible to the sender and the recipient; and
+
+172
+(III) are not posted publicly;
+
+173
+(C) a streaming service that:
+
+174
+(I) provides only licensed media in a continuous flow from the service, website, or
+
+175
+application to the end user; and
+
+176
+(II) does not obtain a license to the media from a user or account holder by agreement
+
+177
+to its terms of service;
+
+178
+(D) news, sports, entertainment, or other content that is preselected by the provider and
+
+179
+not user generated, and any chat, comment, or interactive functionality that is provided
+
+180
+incidental to, directly related to, or dependent upon provision of the content;
+
+181
+(E) online shopping or e-commerce, if the interaction with other users or account
+
+182
+holders is generally limited to:
+
+183
+(I) the ability to upload a post and comment on reviews;
+
+184
+(II) the ability to display lists or collections of goods for sale or wish lists; and
+
+185
+(III) other functions that are focused on online shopping or e-commerce rather than
+
+186
+interaction between users or account holders;
+
+187
+(F) interactive gaming, virtual gaming, or an online service, that allows the creation
+
+188
+and uploading of content for the purpose of interactive gaming, edutainment, or associated
+
+189
+entertainment, and the communication related to that content;
+
+----- Page 8 -----
+H.B. 311
+
+Enrolled Copy
+
+- 8 -
+
+190
+(G) photo editing that has an associated photo hosting service, if the interaction with
+
+191
+other users or account holders is generally limited to liking or commenting;
+
+192
+(H) a professional creative network for showcasing and discovering artistic content, if
+
+193
+the content is required to be non-pornographic;
+
+194
+(I) single-purpose community groups for public safety if:
+
+195
+(I) the interaction with other users or account holders is generally limited to that single
+
+196
+purpose; and
+
+197
+(II) the community group has guidelines or policies against illegal content;
+
+198
+(J) providing career development opportunities, including professional networking, job
+
+199
+skills, learning certifications, and job posting and application services;
+
+200
+(K) business to business software;
+
+201
+(L) a teleconferencing or videoconferencing service that allows reception and
+
+202
+transmission of audio and video signals for real time communication;
+
+203
+(M) cloud storage;
+
+204
+(N) shared document collaboration;
+
+205
+(O) cloud computing services, which may include cloud storage and shared document
+
+206
+collaboration;
+
+207
+(P) providing access to or interacting with data visualization platforms, libraries, or
+
+208
+hubs;
+
+209
+(Q) to permit comments on a digital news website, if the news content is posted only
+
+210
+by the provider of the digital news website;
+
+211
+(R) providing or obtaining technical support for a platform, product, or service;
+
+212
+(S) academic or scholarly research; or
+
+213
+(T) genealogical research; or
+
+214
+(ii) where:
+
+215
+(A) the majority of the content that is posted or created is posted or created by the
+
+216
+provider of the online service, website, or application; and
+
+----- Page 9 -----
+Enrolled Copy
+H.B. 311
+
+- 9 -
+
+217
+(B) the ability to chat, comment, or interact with other users is directly related to the
+
+218
+provider's content;
+
+219
+(iii) that is a classified ad service that only permits the sale of goods and prohibits the
+
+220
+solicitation of personal services; or
+
+221
+(iv) that is used by and under the direction of an educational entity, including:
+
+222
+(A) a learning management system;
+
+223
+(B) a student engagement program; and
+
+224
+(C) a subject or skill-specific program.
+
+225
+(11) "User" means a person who has access to view all, or some of, the posts on a
+
+226
+social media platform, but is not an account holder.
+
+227
+(12) (a) "Utah account holder" means a person who is a Utah resident and an account
+
+228
+holder.
+
+229
+(b) "Utah account holder" includes a Utah minor account holder.
+
+230
+(13) "Utah minor account holder" means a Utah account holder who is a minor.
+
+231
+(14) "Utah resident" means an individual who currently resides in Utah.
+
+232
+Section 4. Section 13-63-201 is enacted to read:
+
+233
+Part 2. Social Media Design Regulations
+
+234
+13-63-201. Social media platform design regulations -- Enforcement and auditing
+
+235
+authority -- Penalties.
+
+236
+(1) Beginning March 1, 2024:
+
+237
+(a) the division shall administer and enforce the provisions of this section; and
+
+238
+(b) the division may audit the records of a social media company in order to determine
+
+239
+compliance with the requirements of this section or to investigate a complaint, including a
+
+240
+random sample of a social media company's records and other audit methods.
+
+241
+(2) Beginning March 1, 2024, a social media company shall not use a practice, design,
+
+242
+or feature on the company's social media platform that the social media company knows, or
+
+243
+which by the exercise of reasonable care should know, causes a Utah minor account holder to
+
+----- Page 10 -----
+H.B. 311
+
+Enrolled Copy
+
+- 10 -
+
+244
+have an addiction to the social media platform.
+
+245
+(3) Beginning March 1, 2024:
+
+246
+(a) Subject to Subsection (3)(b), a social media company is subject to:
+
+247
+(i) a civil penalty of $250,000 for each practice, design, or feature shown to have
+
+248
+caused addiction; and
+
+249
+(ii) a civil penalty of up to $2,500 for each Utah minor account holder who is shown to
+
+250
+have been exposed to the practice, design, or feature found to have caused addiction under
+
+251
+Subsection (3)(a)(i).
+
+252
+(b) A social media company shall not be subject to a civil penalty for violating this
+
+253
+section if the social media company, as an affirmative defense, demonstrates that the social
+
+254
+media company:
+
+255
+(i) instituted and maintained a program of at least quarterly audits of the social media
+
+256
+company's practices, designs, and features to detect practices, designs, or features that have the
+
+257
+potential to cause or contribute to the addiction of a minor user; and
+
+258
+(ii) corrected, within 30 days of the completion of an audit described in Subsection
+
+259
+(3)(b)(i), any practice, design, or feature discovered by the audit to present more than a de
+
+260
+minimus risk of violating this section.
+
+261
+(c) In a court action by the division to enforce this section, the court may, in addition to
+
+262
+a civil penalty:
+
+263
+(i) declare that the act or practice violates a provision of this section;
+
+264
+(ii) issue an injunction for a violation of this section;
+
+265
+(iii) award actual damages to an injured purchaser or consumer; and
+
+266
+(iv) award any other relief that the court deems reasonable and necessary.
+
+267
+(4) Nothing in this section may be construed to impose liability for a social media
+
+268
+company for any of the following:
+
+269
+(a) content that is generated by an account holder, or uploaded to or shared on the
+
+270
+platform by an account holder, that may be encountered by another account holder;
+
+----- Page 11 -----
+Enrolled Copy
+H.B. 311
+
+- 11 -
+
+271
+(b) passively displaying content that is created entirely by a third party;
+
+272
+(c) information or content for which the social media company was not, in whole or in
+
+273
+part, responsible for creating or developing; or
+
+274
+(d) any conduct by a social media company involving a Utah minor account holder
+
+275
+who would otherwise be protected by federal or Utah law.
+
+276
+(5) If a court of competent jurisdiction grants judgment or injunctive relief to the
+
+277
+division, the court shall award the division:
+
+278
+(a) reasonable attorney fees;
+
+279
+(b) court costs; and
+
+280
+(c) investigative fees.
+
+281
+(6) Nothing in this section may be construed to negate or limit a cause of action that
+
+282
+may have existed or exists against a social media company under the law as it existed before
+
+283
+the effective date of this section.
+
+284
+(7) All money received for the payment of a fine or civil penalty imposed under this
+
+285
+section shall be deposited into the Consumer Protection Education and Training Fund
+
+286
+established in Section 13-2-8.
+
+287
+Section 5. Section 13-63-301 is enacted to read:
+
+288
+Part 3. Harm to a Minor by a Social Media Company -- Private Right of Action
+
+289
+13-63-301. Private right of action for harm to a minor -- Rebuttable presumption
+
+290
+of harm and causation.
+
+291
+(1) Beginning March 1, 2024, a person may bring an action under this section against a
+
+292
+social media company to recover damages incurred after March 1, 2024 by a Utah minor
+
+293
+account holder for any addiction, financial, physical, or emotional harm suffered as a
+
+294
+consequence of using or having an account on the social media company's social media
+
+295
+platform.
+
+296
+(2) A suit filed under the authority of this section shall be filed in the district court for
+
+297
+the district in which the Utah minor account holder resides.
+
+----- Page 12 -----
+H.B. 311
+
+Enrolled Copy
+
+- 12 -
+
+298
+(3) Notwithstanding Subsection (4), if a court finds that a Utah minor account holder
+
+299
+has been harmed as a consequence of using or having an account on the social media
+
+300
+company's social media platform, the minor seeking relief under this section is entitled to:
+
+301
+(a) an award of reasonable attorney fees and court costs; and
+
+302
+(b) an amount equal to the greater of:
+
+303
+(i) $2,500 per each incident of harm; or
+
+304
+(ii) actual damages for addiction, financial, physical, and emotional harm incurred by
+
+305
+the person bringing the action, if the court determines that the harm is a direct consequence of
+
+306
+the violation or violations.
+
+307
+(4) If a Utah minor account holder seeking recovery of damages under this section is
+
+308
+under the age of 16, there shall be a rebuttable presumption that the harm actually occurred and
+
+309
+that the harm was a caused as a consequence of using or having an account on the social media
+
+310
+company's social media platform.
+
+311
+Section 6. Section 13-63-401 is enacted to read:
+
+312
+Part 4. Waiver Prohibited
+
+313
+13-63-401. Waiver prohibited.
+
+314
+A waiver or limitation, or a purported waiver or limitation, of any of the following is
+
+315
+void as unlawful, is against public policy, and a court or arbitrator may not enforce or give
+
+316
+effect to the waiver, notwithstanding any contract or choice-of-law provision in a contract:
+
+317
+(1) a protection or requirement provided under this chapter;
+
+318
+(2) the right to cooperate with the division or to file a complaint with the division;
+
+319
+(3) the right to a private right of action as provided under this chapter; or
+
+320
+(4) the right to recover actual damages, statutory damages, civil penalties, costs, or fees
+
+321
+as allowed by this chapter.
+
+322
+Section 7. Section 13-63-501 is enacted to read:
+
+323
+Part 5. Severability
+
+324
+13-63-501. Severability.
+
+----- Page 13 -----
+Enrolled Copy
+H.B. 311
+
+- 13 -
+
+325
+If any provision of this chapter or the application of any provision to any person or
+
+326
+circumstance is held invalid by a final decision of a court of competent jurisdiction, the
+
+327
+remainder of this chapter shall be given effect without the invalid provision or application. The
+
+328
+provisions of this chapter are severable.
+
+329
+Section 8. Effective date.
+
+330
+(1) Except as provided in Subsection (2), this bill takes effect on May 3, 2023.
+
+331
+(2) The actions affecting Section 13-2-1 (Effective 12/31/2023) take effect on
+
+332
+December 31, 2023.

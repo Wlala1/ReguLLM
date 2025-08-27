@@ -1,0 +1,82 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables
+*.env
+.env.local
+config.json
+secrets.json
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints
+
+# Logs and debug
+*.log
+logs/
+debug/
+*.out
+
+# Cache
+.cache/
+*.pickle
+*.pkl
+
+# Vector DB indexes (FAISS, Chroma, Milvus, etc.)
+index/
+indexes/
+chroma/
+faiss_index/
+*.db
+*.sqlite
+
+# RAG knowledge base files (if auto-generated)
+knowledge_base/
+embeddings/
+vectors/
+retriever_cache/
+
+# Model weights (large files, handled separately via DVC or Git LFS if needed)
+*.bin
+*.pt
+*.ckpt
+*.h5
+*.onnx
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+
+# VSCode / PyCharm
+.vscode/
+.idea/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+
+# Data (raw or intermediate, keep only processed if needed)
+data/raw/
+data/interim/
+data/tmp/
+
+original/
+compliance_db/
