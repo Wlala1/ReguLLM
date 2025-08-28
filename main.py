@@ -7,15 +7,15 @@ from langchain.schema.output_parser import StrOutputParser
 from langchain_community.chat_models.tongyi import ChatTongyi
 
 # 初始化 LLM 和 嵌入模型
-llm = ChatTongyi(model="qwen-turbo", temperature=0.1)
+llm = ChatTongyi(model="qwen-max", temperature=0.1)
 
 embedding_model = HuggingFaceEmbeddings(model_name="BAAI/bge-base-en-v1.5")
 
 # 加载已经存在的向量数据库
-vector_store = Chroma(persist_directory="./compliance_db", embedding_function=embedding_model)
+vector_store = Chroma(persist_directory="./legal_compliance_db1", embedding_function=embedding_model)
 
 # 创建一个检索器 (Retriever)，它可以根据查询找到相关文档
-retriever = vector_store.as_retriever(search_kwargs={"k": 3}) # k=3 表示返回最相关的3个文档片段
+retriever = vector_store.as_retriever(search_kwargs={"k": 10}) # k=3 表示返回最相关的3个文档片段
 
 # 示例：接收到一个功能描述
 feature_description = "Geofences feature rollout in US for market testing"
@@ -27,7 +27,7 @@ print(retrieved_docs) # 你会看到返回了包含犹他州法案内容的文�
 # 设计一个 Prompt 模板
 template = """
 You are an expert legal compliance analyst. Your task is to determine if a feature needs geo-specific compliance logic based on the provided context and feature description.
-You must distinguish between legal requirements and business decisions. Output your answer in a valid JSON format.
+You should first identify the location of the feature and find related acts. You must distinguish between legal requirements and business decisions. Output your answer in a valid JSON format.
 
 CONTEXT FROM KNOWLEDGE BASE:
 {context}
