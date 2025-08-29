@@ -1,709 +1,1119 @@
 import re
-from typing import List, Dict, Optional
+import json
+import pickle
+import numpy as np
+from typing import List, Dict, Optional, Set, Tuple, Any
+from dataclasses import dataclass, asdict
+from enum import Enum
+from pathlib import Path
+import networkx as nx
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
 from langchain.schema import Document
+from sklearn.metrics.pairwise import cosine_similarity
+import hashlib
+import requests
+import time
+import os
+import getpass
+from dotenv import load_dotenv
 
-class LegalDocumentSplitter:
-    """专门用于处理法律文档的智能分块器"""
+load_dotenv()
+
+
+class JurisdictionLevel(Enum):
+    """法律管辖层级"""
+    INTERNATIONAL = "international"  
+    FEDERAL = "federal"  
+    STATE = "state"
+    LOCAL = "local"
+    REFERENCE = "reference"  # 参考文档类型（如术语表）
+
+
+@dataclass
+class JurisdictionNode:
+    """管辖区节点"""
+    id: str
+    name: str
+    level: JurisdictionLevel
+    parent_id: Optional[str] = None
+    children_ids: List[str] = None
+    document_ids: List[str] = None
+    metadata: Dict = None
     
-    def __init__(self, max_chunk_size: int = 800, overlap_size: int = 100):
+    def __post_init__(self):
+        if self.children_ids is None:
+            self.children_ids = []
+        if self.document_ids is None:
+            self.document_ids = []
+        if self.metadata is None:
+            self.metadata = {}
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'level': self.level.value,
+            'parent_id': self.parent_id,
+            'children_ids': self.children_ids,
+            'document_ids': self.document_ids,
+            'metadata': self.metadata
+        }
+
+
+@dataclass
+class LegalDocument:
+    """法律文档节点"""
+    id: str
+    title: str
+    content: str
+    jurisdiction_id: str
+    document_type: str
+    chunks: List[str] = None
+    chunk_embeddings: np.ndarray = None
+    metadata: Dict = None
+    related_document_ids: List[str] = None
+    
+    def __post_init__(self):
+        if self.chunks is None:
+            self.chunks = []
+        if self.metadata is None:
+            self.metadata = {}
+        if self.related_document_ids is None:
+            self.related_document_ids = []
+    
+    def to_dict(self):
+        """转换为可JSON序列化的字典"""
+        return {
+            'id': self.id,
+            'title': self.title,
+            'content': self.content,
+            'jurisdiction_id': self.jurisdiction_id,
+            'document_type': self.document_type,
+            'chunks': self.chunks,
+            'metadata': self.metadata,
+            'related_document_ids': self.related_document_ids
+        }
+
+
+class QwenJurisdictionClassifier:
+    """基于Qwen大模型的管辖区分类器"""
+    
+    def __init__(self, api_url: str = None, api_key: str = None):
+        """
+        初始化Qwen分类器
+        
+        Args:
+            api_url: Qwen API地址
+            api_key: API密钥
+        """
+        self.api_url = api_url or "http://localhost:8000/v1/chat/completions"
+        self.model_name = "qwen-max"
+        
+        # 安全地获取API密钥
+        if api_key:
+            self.api_key = api_key
+        elif os.getenv("DASHSCOPE_API_KEY"):
+            self.api_key = os.getenv("DASHSCOPE_API_KEY")
+        else:
+            print("未找到API密钥，将尝试免费方案或提示输入...")
+            self.api_key = self._get_api_key_interactively()
+        
+        self.headers = {
+            "Content-Type": "application/json"
+        }
+        if self.api_key:
+            self.headers["Authorization"] = f"Bearer {self.api_key}"
+    
+    def _get_api_key_interactively(self) -> Optional[str]:
+        """交互式获取API密钥"""
+        print("请输入您的千问API密钥（如使用免费方案可直接回车）：")
+        api_key = getpass.getpass("API Key: ").strip()
+        return api_key if api_key else None
+    
+    def classify_document(self, document_content: str, file_path: str = "") -> Dict[str, Any]:
+        """
+        使用Qwen分类文档的管辖区和类型
+        
+        Args:
+            document_content: 文档内容
+            file_path: 文件路径
+            
+        Returns:
+            包含管辖区、文档类型等信息的字典
+        """
+        # 限制输入长度
+        content_sample = document_content[:1000] if len(document_content) > 1000 else document_content
+        
+        prompt = f"""请分析以下法律文档，判断其管辖区和文档类型，并以JSON格式返回结果。
+
+文件路径: {file_path}
+文档内容: {content_sample}
+
+请返回JSON格式，包含以下字段：
+{{
+    "jurisdiction": "管辖区代码",
+    "document_type": "文档类型",
+    "confidence": "置信度(0-1)",
+    "title": "文档标题",
+    "year": "年份（如果能识别）",
+    "bill_number": "法案编号（如果有）"
+}}
+
+管辖区代码选项：
+- "eu": 欧盟法规
+- "usa": 美国联邦法律
+- "california": 加利福尼亚州
+- "utah": 犹他州
+- "florida": 佛罗里达州
+- "texas": 德克萨斯州
+- "germany": 德国
+- "france": 法国
+- "italy": 意大利
+- "spain": 西班牙
+- "netherlands": 荷兰
+- "reference": 参考文档（术语表、定义等）
+
+文档类型选项：
+- "EU Regulation": 欧盟法规
+- "Federal Code": 美国联邦法典
+- "State Law": 州法律
+- "Terminology Table": 术语表
+- "Reference Document": 参考文档
+
+请只返回JSON，不要其他说明。"""
+
+        try:
+            payload = {
+                "model": self.model_name,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "你是一个专业的法律文档分析助手，擅长识别法律文档的管辖区和类型。"
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                "temperature": 0.1,
+                "max_tokens": 500
+            }
+            
+            response = requests.post(
+                self.api_url,
+                headers=self.headers,
+                json=payload,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                
+                # 尝试解析JSON
+                try:
+                    # 清理可能的markdown格式
+                    content = content.strip()
+                    if content.startswith("```json"):
+                        content = content[7:]
+                    if content.endswith("```"):
+                        content = content[:-3]
+                    content = content.strip()
+                    
+                    classification = json.loads(content)
+                    
+                    # 验证必要字段
+                    if "jurisdiction" not in classification:
+                        classification["jurisdiction"] = "usa"  # 默认值
+                    if "document_type" not in classification:
+                        classification["document_type"] = "Unknown"
+                    if "confidence" not in classification:
+                        classification["confidence"] = 0.5
+                    
+                    return classification
+                    
+                except json.JSONDecodeError as e:
+                    print(f"JSON解析失败: {e}")
+                    print(f"原始内容: {content}")
+                    return self._fallback_classification(document_content, file_path)
+            else:
+                print(f"API调用失败: {response.status_code}")
+                return self._fallback_classification(document_content, file_path)
+                
+        except Exception as e:
+            print(f"分类器调用异常: {e}")
+            return self._fallback_classification(document_content, file_path)
+    
+    def _fallback_classification(self, content: str, file_path: str) -> Dict[str, Any]:
+        """备用分类方法"""
+        content_lower = content.lower()
+        path_lower = file_path.lower()
+        
+        # 简单的关键词匹配作为备用
+        if "terminology" in path_lower or "术语" in content_lower:
+            return {
+                "jurisdiction": "reference",
+                "document_type": "Terminology Table",
+                "confidence": 0.8,
+                "title": "Terminology Table"
+            }
+        elif "eu" in content_lower or "european" in content_lower:
+            return {
+                "jurisdiction": "eu",
+                "document_type": "EU Regulation",
+                "confidence": 0.6,
+                "title": "EU Document"
+            }
+        elif "california" in content_lower or "ca " in content_lower:
+            return {
+                "jurisdiction": "california",
+                "document_type": "State Law",
+                "confidence": 0.6,
+                "title": "California Law"
+            }
+        elif "utah" in content_lower:
+            return {
+                "jurisdiction": "utah",
+                "document_type": "State Law",
+                "confidence": 0.6,
+                "title": "Utah Law"
+            }
+        elif "florida" in content_lower:
+            return {
+                "jurisdiction": "florida",
+                "document_type": "State Law",
+                "confidence": 0.6,
+                "title": "Florida Law"
+            }
+        else:
+            return {
+                "jurisdiction": "usa",
+                "document_type": "Federal Code",
+                "confidence": 0.4,
+                "title": "Federal Document"
+            }
+
+
+class LegalGraphRAG:
+    """法律图谱RAG系统"""
+    
+    def __init__(self, 
+                 embedding_model_name: str = "BAAI/bge-base-en-v1.5",
+                 max_chunk_size: int = 800,
+                 overlap_size: int = 100,
+                 qwen_api_url: str = None,
+                 qwen_api_key: str = None):
+        
+        self.embedding_model = HuggingFaceEmbeddings(model_name=embedding_model_name)
         self.max_chunk_size = max_chunk_size
         self.overlap_size = overlap_size
+        
+        # 安全地处理API密钥
+        if qwen_api_key is None:
+            qwen_api_key = self._get_api_key_safely()
+        
+        # 初始化Qwen分类器
+        self.classifier = QwenJurisdictionClassifier(qwen_api_url, qwen_api_key)
+        
+        # 图数据结构
+        self.graph = nx.DiGraph()
+        self.jurisdictions: Dict[str, JurisdictionNode] = {}
+        self.documents: Dict[str, LegalDocument] = {}
+        
+        # 向量存储
+        self.document_embeddings: Dict[str, np.ndarray] = {}
+        
+        # 初始化基础管辖区结构
+        self._initialize_base_jurisdictions()
     
-    def _clean_text(self, text: str) -> str:
-        """深度清理文本，处理法律文档中的格式问题"""
-        # 1. 移除页眉页脚标识 - 更通用的模式
-        text = re.sub(r'-{3,}\s*Page\s+\d+\s*-{3,}', '', text, flags=re.IGNORECASE)
-        text = re.sub(r'Page\s+\d+\s+of\s+\d+', '', text, flags=re.IGNORECASE)
-        text = re.sub(r'\b[A-Z]{1,4}\s*\d+\s*\n\s*\d{4}', '', text)  # 更通用的法案号-年份格式
+    def _get_api_key_safely(self) -> Optional[str]:
+        """安全地获取API密钥"""
+        # 首先检查环境变量
+        api_key = os.getenv("DASHSCOPE_API_KEY")
         
-        # 2. 移除编码和格式说明
-        text = re.sub(r'CODING:\s*Words stricken.*?additions\.', '', text, flags=re.IGNORECASE)
-        text = re.sub(r'[a-z]+\d+-\d+\s*Page\s+\d+\s+of\s+\d+', '', text)
+        if not api_key:
+            print("未找到环境变量 DASHSCOPE_API_KEY")
+            print("请输入您的千问API密钥（如使用免费方案可直接回车）：")
+            api_key = getpass.getpass("API Key: ").strip()
+            if not api_key:
+                api_key = None
+                print("未输入API密钥，将尝试使用免费方案")
         
-        # 3. 移除重复的机构名称行 - 更灵活的模式
-        # 州议会格式
-        text = re.sub(r'[A-Z]\s*[A-Z]\s*[A-Z]\s*[A-Z]\s*[A-Z]\s*[A-Z]\s*A\s*H\s*O\s*U\s*S\s*E\s*O\s*F\s*R\s*E\s*P\s*R\s*E\s*S\s*E\s*N\s*T\s*A\s*T\s*I\s*V\s*E\s*S', '', text)
-        text = re.sub(r'[A-Z]\s*[A-Z]\s*[A-Z]\s*[A-Z]\s*[A-Z]\s*[A-Z]\s*A\s*S\s*E\s*N\s*A\s*T\s*E', '', text)
+        return api_key
         
-        # 联邦格式
-        text = re.sub(r'U\s*N\s*I\s*T\s*E\s*D\s*S\s*T\s*A\s*T\s*E\s*S\s*C\s*O\s*N\s*G\s*R\s*E\s*S\s*S', '', text)
+    def _initialize_base_jurisdictions(self):
+        """初始化基础管辖区结构"""
+        base_jurisdictions = [
+            # 参考文档类别
+            ("reference", "Reference Documents", JurisdictionLevel.REFERENCE, None),
+            
+            # 欧盟体系
+            ("eu", "European Union", JurisdictionLevel.INTERNATIONAL, None),
+            ("germany", "Germany", JurisdictionLevel.FEDERAL, "eu"),
+            ("france", "France", JurisdictionLevel.FEDERAL, "eu"),
+            ("italy", "Italy", JurisdictionLevel.FEDERAL, "eu"),
+            ("spain", "Spain", JurisdictionLevel.FEDERAL, "eu"),
+            ("netherlands", "Netherlands", JurisdictionLevel.FEDERAL, "eu"),
+            
+            # 美国体系
+            ("usa", "United States", JurisdictionLevel.FEDERAL, None),
+            ("california", "California", JurisdictionLevel.STATE, "usa"),
+            ("utah", "Utah", JurisdictionLevel.STATE, "usa"),
+            ("florida", "Florida", JurisdictionLevel.STATE, "usa"),
+            ("texas", "Texas", JurisdictionLevel.STATE, "usa"),
+        ]
         
-        # 4. 处理被空格截断的单词和句子 - 扩展常见法律术语
-        # 移除单词内的异常空格
-        text = re.sub(r'\b([a-zA-Z])\s+([a-zA-Z])\s+([a-zA-Z])', r'\1\2\3', text)
-        text = re.sub(r'\b([a-zA-Z])\s+([a-zA-Z])', r'\1\2', text)
+        # 创建管辖区节点
+        for jur_id, name, level, parent_id in base_jurisdictions:
+            jurisdiction = JurisdictionNode(
+                id=jur_id,
+                name=name,
+                level=level,
+                parent_id=parent_id
+            )
+            self.jurisdictions[jur_id] = jurisdiction
         
-        # 5. 合并被分行的句子
+        # 建立父子关系
+        for jur_id, jurisdiction in self.jurisdictions.items():
+            if jurisdiction.parent_id and jurisdiction.parent_id in self.jurisdictions:
+                self.jurisdictions[jurisdiction.parent_id].children_ids.append(jur_id)
+        
+        # 添加到图中
+        for jur_id, jurisdiction in self.jurisdictions.items():
+            self.graph.add_node(jur_id, node_type="jurisdiction", data=jurisdiction)
+            if jurisdiction.parent_id and jurisdiction.parent_id in self.jurisdictions:
+                self.graph.add_edge(jurisdiction.parent_id, jur_id, relationship="governs")
+
+    def clean_text(self, text: str) -> str:
+        """清洗文本内容"""
+        print("开始文本清洗...")
+        
+        # 1. 移除页眉页脚
+        text = re.sub(r'-{5,}\s*Page\s+\d+\s*-{5,}', '', text, flags=re.IGNORECASE)
+        text = re.sub(r'HB\s+\d+\s*\n\s*\d{4}', '', text)
+        text = re.sub(r'CODING:\s*Words stricken.*?additions\.', '', text)
+        text = re.sub(r'hb\d+-\d+\s*Page\s+\d+\s+of\s+\d+', '', text, flags=re.IGNORECASE)
+        
+        # 2. 修复被空格分割的单词
+        text = re.sub(r'\b([a-zA-Z])\s+([a-zA-Z])\s+([a-zA-Z])\b', r'\1\2\3', text)
+        text = re.sub(r'\b([a-zA-Z])\s+([a-zA-Z])\b', r'\1\2', text)
+        
+        # 3. 合并被分行的句子
         text = re.sub(r'([a-z,;:])\s*\n\s*([a-z])', r'\1 \2', text)
         
-        # 6. 处理各种条文编号格式
-        # 标准编号格式
-        text = re.sub(r'\(\s*(\d+)\s*\)', r'(\1)', text)  # (1) 格式
-        text = re.sub(r'\(\s*([a-z])\s*\)', r'(\1)', text)  # (a) 格式
-        text = re.sub(r'\(\s*([A-Z])\s*\)', r'(\1)', text)  # (A) 格式
-        text = re.sub(r'(\d+)\s*\.', r'\1.', text)  # 数字后的点号
+        # 4. 标准化条文编号
+        text = re.sub(r'\(\s*(\d+)\s*\)', r'(\1)', text)
+        text = re.sub(r'\(\s*([a-z])\s*\)', r'(\1)', text)
+        text = re.sub(r'(\d+)\s*\.', r'\1.', text)
         
-        # Section/Article 格式
-        text = re.sub(r'Section\s+(\d+)\s*\.', r'Section \1.', text, flags=re.IGNORECASE)
-        text = re.sub(r'Article\s+([IVX\d]+)\s*\.', r'Article \1.', text, flags=re.IGNORECASE)
+        # 5. 标准化空白字符
+        text = re.sub(r'\t', ' ', text)
+        text = re.sub(r'[ \t]+', ' ', text)
+        text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)
+        text = re.sub(r'^\s+', '', text, flags=re.MULTILINE)
+        text = re.sub(r'\s+$', '', text, flags=re.MULTILINE)
         
-        # 7. 标准化空白字符
-        text = re.sub(r'\t', ' ', text)  # 制表符转空格
-        text = re.sub(r'[ \t]+', ' ', text)  # 多个空格合并为一个
-        text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)  # 多个换行合并为两个
-        text = re.sub(r'^\s+', '', text, flags=re.MULTILINE)  # 移除行首空格
-        text = re.sub(r'\s+$', '', text, flags=re.MULTILINE)  # 移除行尾空格
+        print("文本清洗完成")
+        return text.strip()
+
+    def create_smart_chunks(self, text: str, document_type: str) -> List[str]:
+        """根据文档类型创建智能分块"""
+        print(f"开始智能分块，文档类型: {document_type}")
         
-        # 8. 修复常见的法律术语被分割的问题 - 扩展词典
-        legal_terms = {
-            'c o m m e r c i a l': 'commercial',
-            'e n t i t y': 'entity', 
-            'm a t e r i a l': 'material',
-            'h a r m f u l': 'harmful',
-            'm i n o r s': 'minors',
-            'v e r i f i c a t i o n': 'verification',
-            'd i s t r i b u t e': 'distribute',
-            'p u b l i s h': 'publish',
-            'r e g u l a t i o n': 'regulation',
-            'c o m p l i a n c e': 'compliance',
-            'j u r i s d i c t i o n': 'jurisdiction',
-            'e n f o r c e m e n t': 'enforcement',
-            'v i o l a t i o n': 'violation',
-            'p e n a l t y': 'penalty',
-            'a u t h o r i t y': 'authority',
-            'r e q u i r e m e n t': 'requirement',
-            'p r o c e d u r e': 'procedure',
-            'l i a b i l i t y': 'liability',
-            'd a m a g e s': 'damages',
-            'r e m e d y': 'remedy'
-        }
-        
-        for broken_term, fixed_term in legal_terms.items():
-            text = re.sub(broken_term, fixed_term, text, flags=re.IGNORECASE)
-        
-        # 9. 修复编号和内容之间的异常空格
-        text = re.sub(r'Section\s+(\d+)\s*\.\s*', r'Section \1. ', text)
-        text = re.sub(r'\((\d+)\)\s*([A-Z])', r'(\1) \2', text)
-        text = re.sub(r'\(([a-zA-Z])\)\s*([A-Z])', r'(\1) \2', text)
-        
-        # 10. 处理特殊的法律引用格式
-        text = re.sub(r'(\d+)\s+U\s*S\s*C\s+(\d+)', r'\1 USC \2', text)  # USC引用
-        text = re.sub(r'(\d+)\s+C\s*F\s*R\s+(\d+)', r'\1 CFR \2', text)  # CFR引用
-        
-        # 11. 最终清理
-        text = re.sub(r'\n\s+', '\n', text)  # 移除换行后的空格
-        text = text.strip()
-        
-        return text
-    
-    def _reconstruct_sentences(self, text: str) -> str:
-        """重建被破坏的句子结构"""
-        lines = text.split('\n')
-        reconstructed_lines = []
-        current_sentence = ""
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                if current_sentence:
-                    reconstructed_lines.append(current_sentence.strip())
-                    current_sentence = ""
-                continue
-            
-            # 如果行以数字开始，可能是新的条文
-            if re.match(r'^\d+\s', line) or re.match(r'^Section\s+\d', line) or re.match(r'^\([a-z0-9]+\)', line):
-                if current_sentence:
-                    reconstructed_lines.append(current_sentence.strip())
-                current_sentence = line + " "
-            # 如果行以句号、分号结尾，是句子的结束
-            elif line.endswith('.') or line.endswith(';'):
-                current_sentence += line + " "
-                reconstructed_lines.append(current_sentence.strip())
-                current_sentence = ""
-            # 否则继续合并到当前句子
-            else:
-                current_sentence += line + " "
-        
-        # 处理最后一个句子
-        if current_sentence:
-            reconstructed_lines.append(current_sentence.strip())
-        
-        return '\n'.join(reconstructed_lines)
-    
-    def _is_terminology_table(self, text: str, source_path: str) -> bool:
-        """判断是否为术语词典 - 更严格的判断"""
-        # 明确的术语表指标
-        explicit_indicators = [
-            'Terminology Table' in text[:200],  # 标题中明确说明
-            'terminology_table' in source_path.lower(),
-        ]
-        
-        if any(explicit_indicators):
-            return True
-        
-        # 检查是否为纯术语定义格式（多个简短的术语:定义对）
-        lines = text.split('\n')
-        term_definition_lines = 0
-        total_meaningful_lines = 0
-        
-        for line in lines:
-            line = line.strip()
-            if not line or len(line) < 3:
-                continue
-            total_meaningful_lines += 1
-            
-            # 检查是否为术语定义格式: "TERM: definition"
-            if re.match(r'^[A-Z][A-Za-z]*\s*:', line) and len(line) < 200:
-                term_definition_lines += 1
-        
-        # 如果超过60%的行是术语定义格式，且总行数不太多，才认为是术语表
-        if total_meaningful_lines > 5:
-            term_ratio = term_definition_lines / total_meaningful_lines
-            return term_ratio > 0.6 and total_meaningful_lines < 50
-            
-        return False
-    
-    def _is_federal_code(self, text: str) -> bool:
-        """判断是否为联邦法典"""
-        indicators = [
-            'U.S. Code' in text,
-            'USC' in text,
-            'Title 18' in text,
-            'CFR' in text,
-            'Federal Register' in text
-        ]
-        return any(indicators)
-    
-    def _is_eu_regulation(self, text: str) -> bool:
-        """判断是否为欧盟法规"""
-        indicators = [
-            'REGULATION (EU)' in text,
-            'European Parliament' in text,
-            'Official Journal of the European Union' in text,
-            'Digital Services Act' in text
-        ]
-        return any(indicators)
-    
-    def _extract_document_metadata(self, text: str, source_path: str = '') -> Dict:
-        """提取文档元数据，包括处理专业术语词典"""
-        # 首先清理文本
-        clean_text = self._clean_text(text)
-        metadata = {}
-        
-        # 检查是否为术语词典
-        if self._is_terminology_table(clean_text, source_path):
-            metadata.update(self._extract_terminology_metadata(clean_text))
-            return metadata
-        
-        # 检查是否为联邦法规（如USC）
-        if self._is_federal_code(clean_text):
-            metadata.update(self._extract_federal_code_metadata(clean_text))
-        
-        # 检查是否为欧盟法规
-        elif self._is_eu_regulation(clean_text):
-            metadata.update(self._extract_eu_regulation_metadata(clean_text))
-            
-        # 检查是否为州法
+        if document_type == "Terminology Table":
+            return self._chunk_terminology_table(text)
+        elif document_type == "EU Regulation":
+            return self._chunk_by_articles(text)
+        elif document_type == "Federal Code":
+            return self._chunk_by_subsections(text)
+        elif document_type == "State Law":
+            return self._chunk_by_sections(text)
         else:
-            metadata.update(self._extract_state_law_metadata(clean_text))
-            
-        return metadata
+            return self._chunk_by_paragraphs(text)
     
-    def _extract_terminology_metadata(self, text: str) -> Dict:
-        """提取术语词典元数据"""
-        metadata = {
-            'document_type': 'Terminology Table',
-            'content_type': 'definitions',
-        }
-        
-        # 统计术语数量
-        term_count = len(re.findall(r'^[A-Z]+:', text, re.MULTILINE))
-        metadata['term_count'] = term_count
-        
-        return metadata
-    
-    def _extract_federal_code_metadata(self, text: str) -> Dict:
-        """提取联邦法典元数据"""
-        metadata = {'document_type': 'Federal Code'}
-        
-        # 提取USC section
-        usc_match = re.search(r'(\d+)\s+U\.?S\.?\s+Code\s+§\s*(\d+[A-Z]?)', text, re.IGNORECASE)
-        if usc_match:
-            metadata['title'] = f"Title {usc_match.group(1)}"
-            metadata['section'] = f"Section {usc_match.group(2)}"
-            metadata['bill_number'] = f"{usc_match.group(1)} USC {usc_match.group(2)}"
-        
-        metadata['jurisdiction'] = 'Federal'
-        return metadata
-    
-    def _extract_eu_regulation_metadata(self, text: str) -> Dict:
-        """提取欧盟法规元数据"""
-        metadata = {'document_type': 'EU Regulation'}
-        
-        # 提取法规编号
-        eu_reg_match = re.search(r'REGULATION\s+\(EU\)\s+(\d+/\d+)', text)
-        if eu_reg_match:
-            metadata['bill_number'] = f"EU {eu_reg_match.group(1)}"
-        
-        # 提取日期
-        date_match = re.search(r'of\s+(\d+\s+\w+\s+\d{4})', text)
-        if date_match:
-            metadata['date'] = date_match.group(1)
-            
-        # 提取主题
-        if 'Digital Services Act' in text:
-            metadata['title'] = 'Digital Services Act'
-            
-        metadata['jurisdiction'] = 'European Union'
-        return metadata
-    
-    def _extract_state_law_metadata(self, text: str) -> Dict:
-        """提取州法元数据"""
-        metadata = {}
-        
-        # 提取各种类型的法案编号
-        bill_patterns = [
-            (r'\b(HB\s+\d+)\b', 'House Bill'),
-            (r'\b(SB\s+\d+)\b', 'Senate Bill'), 
-            (r'\b(Senate\s+Bill\s+No\.\s+\d+)\b', 'Senate Bill'),
-            (r'\b(H\.B\.\s+\d+)\b', 'House Bill'),
-            (r'\b(S\.B\.\s+\d+)\b', 'Senate Bill'),
-            (r'\b(CHAPTER\s+\d+)\b', 'Chapter')
-        ]
-        
-        for pattern, doc_type in bill_patterns:
-            bill_match = re.search(pattern, text, re.IGNORECASE)
-            if bill_match:
-                metadata['bill_number'] = bill_match.group(1).upper().replace('.', '')
-                metadata['document_type'] = doc_type
-                break
-        
-        # 提取标题
-        title_patterns = [
-            r'An act relating to (.+?)[;.]',
-            r'A bill to be entitled\s+An act (.+?)[;.]',
-            r'An act to add (.+?), relating to (.+?)\.',
-        ]
-        
-        for pattern in title_patterns:
-            title_match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
-            if title_match:
-                metadata['title'] = title_match.group(1).strip()
-                break
-        
-        # 提取年份
-        year_matches = re.findall(r'\b(20\d{2})\b', text)
-        if year_matches:
-            metadata['year'] = str(max(int(y) for y in year_matches))
-        
-        # 识别管辖区域
-        jurisdiction_patterns = [
-            (r'\bFlorida\b', 'Florida'),
-            (r'\bCalifornia\b', 'California'),
-            (r'\bUtah\b', 'Utah'),
-            (r'\bTexas\b', 'Texas'),
-            (r'\bNew York\b', 'New York'),
-        ]
-        
-        for pattern, jurisdiction in jurisdiction_patterns:
-            if re.search(pattern, text, re.IGNORECASE):
-                metadata['jurisdiction'] = jurisdiction
-                break
-        
-        # 提取有效日期
-        effective_patterns = [
-            r'shall take effect (.+?)[\.\n]',
-            r'effective (.+?)[\.\n]',
-            r'takes effect on (.+?)[\.\n]'
-        ]
-        
-        for pattern in effective_patterns:
-            effective_match = re.search(pattern, text, re.IGNORECASE)
-            if effective_match:
-                metadata['effective_date'] = effective_match.group(1).strip()
-                break
-                
-        return metadata
-    
-    def _create_smart_chunks(self, text: str, metadata: Dict) -> List[str]:
-        """创建智能分块 - 针对不同类型文档使用不同策略"""
-        
-        # 根据文档类型选择分块策略
-        doc_type = metadata.get('document_type', '')
-        
-        if doc_type == 'Terminology Table':
-            return self._chunk_terminology_table(text, metadata)
-        elif doc_type == 'EU Regulation':
-            return self._chunk_eu_regulation(text, metadata)
-        elif doc_type == 'Federal Code':
-            return self._chunk_federal_code(text, metadata)
-        else:
-            return self._chunk_state_law(text, metadata)
-    
-    def _chunk_terminology_table(self, text: str, metadata: Dict) -> List[str]:
-        """处理术语词典的分块"""
+    def _chunk_terminology_table(self, text: str) -> List[str]:
+        """术语表分块"""
         chunks = []
-        
         # 按术语条目分割
-        term_entries = re.split(r'\n(?=[A-Z][A-Za-z]*:)', text)
+        entries = re.split(r'\n(?=[A-Z][A-Za-z]*:)', text)
         
         current_chunk = ""
-        for entry in term_entries:
+        for entry in entries:
             entry = entry.strip()
             if not entry:
                 continue
-                
-            # 如果添加这个条目会超过限制，先保存当前块
+            
             if current_chunk and len(current_chunk + entry) > self.max_chunk_size:
                 chunks.append(current_chunk.strip())
                 current_chunk = ""
             
             current_chunk += entry + "\n\n"
         
-        # 添加最后一个块
         if current_chunk.strip():
             chunks.append(current_chunk.strip())
-            
+        
         return chunks if chunks else [text[:self.max_chunk_size]]
     
-    def _chunk_eu_regulation(self, text: str, metadata: Dict) -> List[str]:
-        """处理欧盟法规的分块 - 改进版"""
+    def _chunk_by_articles(self, text: str) -> List[str]:
+        """按Article分块（欧盟法规）"""
         chunks = []
-        
-        # EU法规按Article分割
         article_pattern = r'(Article\s+\d+[^\n]*(?:\n(?!Article\s+\d+)[^\n]*)*)'
         articles = re.findall(article_pattern, text, re.MULTILINE | re.DOTALL)
         
-        if articles and len(articles) > 5:  # 确保找到足够的Articles
-            for article in articles:
-                article = article.strip()
-                if not article:
-                    continue
-                    
-                if len(article) <= self.max_chunk_size:
-                    chunks.append(article)
-                else:
-                    # Article太长，按段落分割
-                    paragraph_chunks = self._split_eu_article(article)
-                    chunks.extend(paragraph_chunks)
-        else:
-            # 如果没找到Article结构，尝试其他模式
-            chunks = self._try_alternative_patterns(text)
-            
-        return chunks if chunks else self._fallback_sentence_split(text)
+        for article in articles:
+            if len(article) <= self.max_chunk_size:
+                chunks.append(article.strip())
+            else:
+                sub_chunks = self._split_long_text(article)
+                chunks.extend(sub_chunks)
+        
+        return chunks if chunks else self._split_long_text(text)
     
-    def _split_eu_article(self, article_text: str) -> List[str]:
-        """分割EU Article"""
+    def _chunk_by_subsections(self, text: str) -> List[str]:
+        """按子节分块（联邦法典）"""
         chunks = []
-        
-        # 按段落编号分割 (1), (2), (3)
-        paragraph_pattern = r'\n\s*\((\d+)\)\s*'
-        parts = re.split(paragraph_pattern, article_text)
-        
-        if len(parts) > 2:  # 找到了段落结构
-            current_chunk = parts[0].strip()  # Article标题和第一部分
-            
-            # 处理编号段落
-            for i in range(1, len(parts), 2):
-                if i + 1 < len(parts):
-                    para_num = parts[i]
-                    para_content = parts[i + 1].strip()
-                    para_text = f"\n({para_num}) {para_content}"
-                    
-                    if len(current_chunk + para_text) <= self.max_chunk_size:
-                        current_chunk += para_text
-                    else:
-                        if current_chunk.strip():
-                            chunks.append(current_chunk.strip())
-                        current_chunk = f"Article (continued):{para_text}"
-            
-            if current_chunk.strip():
-                chunks.append(current_chunk.strip())
-        else:
-            # 按句子分割
-            chunks = self._fallback_sentence_split(article_text)
-            
-        return chunks
-    
-    def _chunk_federal_code(self, text: str, metadata: Dict) -> List[str]:
-        """处理联邦法典的分块"""
-        chunks = []
-        
-        # 联邦法典通常有(a), (b), (c)等子节
-        # 先尝试按主要subsection分割
-        subsection_pattern = r'\n\s*\([a-z]\)\s*[A-Z]'
+        subsection_pattern = r'\n\s*\([a-z]\)\s*'
         parts = re.split(subsection_pattern, text)
         
         if len(parts) > 1:
-            # 找到了subsection结构
-            current_chunk = parts[0]  # 开头部分
-            
-            # 重新找到所有subsection标记
-            subsections = re.findall(subsection_pattern, text)
-            
-            for i, (subsection_mark, content) in enumerate(zip(subsections, parts[1:])):
-                subsection_text = subsection_mark.strip() + " " + content.strip()
-                
-                if len(current_chunk + "\n" + subsection_text) <= self.max_chunk_size:
-                    current_chunk += "\n" + subsection_text
+            current_chunk = parts[0]
+            for part in parts[1:]:
+                if len(current_chunk + part) <= self.max_chunk_size:
+                    current_chunk += "\n" + part
                 else:
-                    if current_chunk.strip():
-                        chunks.append(current_chunk.strip())
-                    current_chunk = subsection_text
+                    chunks.append(current_chunk.strip())
+                    current_chunk = part
             
             if current_chunk.strip():
                 chunks.append(current_chunk.strip())
         else:
-            # 没有找到subsection，按句子分割
-            return self._fallback_sentence_split(text)
-            
+            chunks = self._split_long_text(text)
+        
         return chunks
     
-    def _chunk_state_law(self, text: str, metadata: Dict) -> List[str]:
-        """处理州法的分块 - 改进版"""
+    def _chunk_by_sections(self, text: str) -> List[str]:
+        """按Section分块（州法）"""
         chunks = []
-        
-        # 首先尝试按Section分割
         section_pattern = r'(Section\s+\d+\..*?)(?=Section\s+\d+\.|$)'
         sections = re.findall(section_pattern, text, re.DOTALL | re.IGNORECASE)
         
-        if sections and len(sections) > 1:
-            # 找到了Section结构
-            for section in sections:
-                section = section.strip()
-                if len(section) <= self.max_chunk_size:
-                    chunks.append(section)
-                else:
-                    # Section太长，进一步分割
-                    subsection_chunks = self._split_long_section(section)
-                    chunks.extend(subsection_chunks)
-        else:
-            # 尝试其他分割模式
-            chunks = self._try_alternative_patterns(text)
-            
-        return chunks if chunks else self._fallback_sentence_split(text)
+        for section in sections:
+            if len(section) <= self.max_chunk_size:
+                chunks.append(section.strip())
+            else:
+                sub_chunks = self._split_long_text(section)
+                chunks.extend(sub_chunks)
+        
+        return chunks if chunks else self._split_long_text(text)
     
-    def _split_long_section(self, section_text: str) -> List[str]:
-        """分割过长的Section"""
+    def _chunk_by_paragraphs(self, text: str) -> List[str]:
+        """按段落分块（通用方法）"""
+        return self._split_long_text(text)
+    
+    def _split_long_text(self, text: str) -> List[str]:
+        """分割长文本"""
         chunks = []
+        sentences = re.split(r'[.;]\s+(?=[A-Z]|\(\d+\)|\([a-z]\)|\d+\.)', text)
         
-        # 尝试按subsection分割 (1), (2), (a), (b)等
-        subsection_pattern = r'\n\s*\([a-z0-9]+\)\s*'
-        parts = re.split(subsection_pattern, section_text)
-        
-        if len(parts) > 1:
-            current_chunk = parts[0]  # Section开头部分
-            subsection_markers = re.findall(subsection_pattern, section_text)
-            
-            for marker, content in zip(subsection_markers, parts[1:]):
-                subsection_text = marker.strip() + " " + content.strip()
-                
-                if len(current_chunk + "\n" + subsection_text) <= self.max_chunk_size:
-                    current_chunk += "\n" + subsection_text
-                else:
-                    if current_chunk.strip():
-                        chunks.append(current_chunk.strip())
-                    current_chunk = "Section (continued):\n" + subsection_text
-            
-            if current_chunk.strip():
-                chunks.append(current_chunk.strip())
-        else:
-            # 按句子分割
-            chunks = self._fallback_sentence_split(section_text)
-            
-        return chunks
-    
-    def _try_alternative_patterns(self, text: str) -> List[str]:
-        """尝试其他分割模式"""
-        chunks = []
-        
-        # 尝试按Article分割（EU规则）
-        article_pattern = r'(Article\s+\d+.*?)(?=Article\s+\d+|$)'
-        articles = re.findall(article_pattern, text, re.DOTALL | re.IGNORECASE)
-        
-        if articles and len(articles) > 1:
-            for article in articles:
-                article = article.strip()
-                if len(article) <= self.max_chunk_size:
-                    chunks.append(article)
-                else:
-                    sub_chunks = self._split_long_section(article)
-                    chunks.extend(sub_chunks)
-        else:
-            # 尝试按大的段落分割
-            paragraphs = re.split(r'\n\s*\n\s*', text)
-            current_chunk = ""
-            
-            for para in paragraphs:
-                para = para.strip()
-                if not para:
-                    continue
-                    
-                if len(current_chunk + "\n\n" + para) <= self.max_chunk_size:
-                    current_chunk += "\n\n" + para if current_chunk else para
-                else:
-                    if current_chunk:
-                        chunks.append(current_chunk.strip())
-                    current_chunk = para
-            
-            if current_chunk:
-                chunks.append(current_chunk.strip())
-                
-        return chunks
-    
-    def _split_by_sentences(self, text: str) -> List[str]:
-        """按句子分割文本，保持法律条文的完整性"""
-        # 法律文档的句子分割模式
-        sentence_endings = r'[.;]\s+(?=[A-Z]|\(\d+\)|\([a-z]\)|\d+\.)'
-        sentences = re.split(sentence_endings, text)
-        
-        # 清理和过滤句子
-        cleaned_sentences = []
+        current_chunk = ""
         for sentence in sentences:
             sentence = sentence.strip()
-            if len(sentence) > 10:  # 过滤掉太短的句子
-                cleaned_sentences.append(sentence)
-        
-        return cleaned_sentences
-    
-    def _fallback_sentence_split(self, text: str) -> List[str]:
-        """回退方案：基于句子的智能分割"""
-        sentences = self._split_by_sentences(text)
-        chunks = []
-        current_chunk = ""
-        
-        for sentence in sentences:
+            if not sentence or len(sentence) < 10:
+                continue
+            
             if len(current_chunk + sentence) <= self.max_chunk_size:
-                current_chunk += sentence + " "
+                current_chunk += sentence + ". "
             else:
                 if current_chunk:
                     chunks.append(current_chunk.strip())
-                current_chunk = sentence + " "
+                current_chunk = sentence + ". "
         
         if current_chunk:
             chunks.append(current_chunk.strip())
         
         return chunks
     
-    def split_documents(self, documents: List[Document]) -> List[Document]:
-        """分割文档列表"""
-        split_docs = []
+    def process_document(self, text_content: str, file_path: str) -> str:
+        """
+        处理文档的完整流程：清洗 → 分类 → 建图 → 分块 → 向量化
         
-        for doc in documents:
-            print(f"\n正在处理文档: {doc.metadata.get('source', 'Unknown')}")
-            source_path = doc.metadata.get('source', '')
+        Args:
+            text_content: 原始文本内容
+            file_path: 文件路径
             
-            # 显示原始文档的一些统计信息
-            original_text = doc.page_content
-            print(f"  原始文档长度: {len(original_text)} 字符")
-            print(f"  原始文档行数: {len(original_text.splitlines())}")
+        Returns:
+            文档ID
+        """
+        print(f"\n开始处理文档: {file_path}")
+        
+        # 步骤1: 清洗文本
+        cleaned_text = self.clean_text(text_content)
+        
+        # 步骤2: 使用大模型识别管辖区和文档类型
+        print("使用大模型进行文档分类...")
+        classification = self.classifier.classify_document(cleaned_text, file_path)
+        
+        jurisdiction_id = classification["jurisdiction"]
+        document_type = classification["document_type"]
+        confidence = classification.get("confidence", 0.5)
+        
+        print(f"分类结果: 管辖区={jurisdiction_id}, 类型={document_type}, 置信度={confidence:.2f}")
+        
+        # 步骤3: 确保管辖区节点存在
+        if jurisdiction_id not in self.jurisdictions:
+            print(f"警告: 管辖区 {jurisdiction_id} 不在预定义列表中，使用默认分类")
+            jurisdiction_id = "usa"  # 默认归类到美国联邦
+        
+        # 步骤4: 生成文档ID和创建文档对象
+        doc_id = hashlib.md5(f"{file_path}_{cleaned_text[:100]}".encode()).hexdigest()[:12]
+        
+        # 提取标题
+        title = classification.get("title", Path(file_path).stem)
+        if classification.get("bill_number"):
+            title = classification["bill_number"]
+        
+        # 创建文档对象
+        document = LegalDocument(
+            id=doc_id,
+            title=title,
+            content=cleaned_text,
+            jurisdiction_id=jurisdiction_id,
+            document_type=document_type,
+            metadata={
+                "source_path": file_path,
+                "classification_confidence": confidence,
+                **{k: v for k, v in classification.items() 
+                   if k not in ["jurisdiction", "document_type", "confidence", "title"]}
+            }
+        )
+        
+        # 步骤5: 智能分块
+        print("开始智能分块...")
+        document.chunks = self.create_smart_chunks(cleaned_text, document_type)
+        print(f"生成 {len(document.chunks)} 个文档块")
+        
+        # 步骤6: 向量化
+        print("开始向量化...")
+        if document.chunks:
+            chunk_embeddings = []
+            for i, chunk in enumerate(document.chunks):
+                embedding = self.embedding_model.embed_query(chunk)
+                chunk_embeddings.append(embedding)
+                if (i + 1) % 10 == 0:
+                    print(f"已完成 {i + 1}/{len(document.chunks)} 个块的向量化")
             
-            # 深度清理文档
-            cleaned_text = self._clean_text(original_text)
-            cleaned_text = self._reconstruct_sentences(cleaned_text)
-            
-            print(f"  清理后长度: {len(cleaned_text)} 字符")
-            print(f"  清理后行数: {len(cleaned_text.splitlines())}")
-            
-            # 提取文档级元数据
-            doc_metadata = self._extract_document_metadata(original_text, source_path)
-            doc_metadata.update(doc.metadata)  # 保留原有元数据
-            
-            print(f"  文档类型: {doc_metadata.get('document_type', 'Unknown')}")
-            
-            # 创建智能分块
-            chunks = self._create_smart_chunks(cleaned_text, doc_metadata)
-            
-            print(f"  生成分块数: {len(chunks)}")
-            
-            # 为每个块创建Document对象
-            for i, chunk in enumerate(chunks):
-                chunk_metadata = doc_metadata.copy()
-                chunk_metadata.update({
-                    'chunk_id': i,
-                    'total_chunks': len(chunks),
-                    'chunk_type': self._determine_chunk_type(chunk, doc_metadata),
-                    'original_length': len(original_text),
-                    'cleaned_length': len(cleaned_text)
-                })
+            document.chunk_embeddings = np.array(chunk_embeddings)
+            self.document_embeddings[doc_id] = document.chunk_embeddings
+        
+        # 步骤7: 添加到图数据结构
+        self.documents[doc_id] = document
+        self.jurisdictions[jurisdiction_id].document_ids.append(doc_id)
+        
+        # 添加到图中
+        self.graph.add_node(doc_id, node_type="document", data=document)
+        self.graph.add_edge(jurisdiction_id, doc_id, relationship="contains")
+        
+        print(f"文档处理完成: {title} -> 管辖区: {jurisdiction_id}")
+        return doc_id
+    
+    def build_from_directory(self, directory_path: str):
+        """从目录批量处理文档"""
+        print(f"开始从目录加载文档: {directory_path}")
+        
+        # 加载所有txt文件
+        loader = DirectoryLoader(
+            directory_path,
+            glob="**/*.txt",
+            show_progress=True,
+            loader_cls=TextLoader,
+            loader_kwargs={"autodetect_encoding": True}
+        )
+        
+        documents = loader.load()
+        print(f"找到 {len(documents)} 个文档文件")
+        
+        # 逐个处理文档
+        processed_docs = []
+        for i, doc in enumerate(documents, 1):
+            print(f"\n处理进度: {i}/{len(documents)}")
+            try:
+                doc_id = self.process_document(doc.page_content, doc.metadata.get('source', ''))
+                processed_docs.append(doc_id)
                 
-                split_docs.append(Document(
-                    page_content=chunk,
-                    metadata=chunk_metadata
+                # 添加延迟避免API调用过快
+                time.sleep(1)
+                
+            except Exception as e:
+                print(f"处理文档失败: {doc.metadata.get('source', 'Unknown')}")
+                print(f"错误: {e}")
+                continue  # 继续处理下一个文档
+        
+        print(f"\n批量处理完成，成功处理 {len(processed_docs)} 个文档")
+        
+        # 构建文档间关系
+        print("构建文档关系...")
+        self.build_document_relationships()
+        
+        return processed_docs
+    
+    def build_document_relationships(self):
+        """构建文档间的关系"""
+        doc_list = list(self.documents.values())
+        
+        for doc in doc_list:
+            related_ids = []
+            
+            # 基于引用查找相关文档
+            for other_doc in doc_list:
+                if other_doc.id == doc.id:
+                    continue
+                
+                # 检查标题引用
+                if doc.title in other_doc.content or other_doc.title in doc.content:
+                    related_ids.append(other_doc.id)
+                
+                # 检查法案编号引用
+                if (doc.metadata.get('bill_number') and 
+                    doc.metadata['bill_number'] in other_doc.content):
+                    related_ids.append(other_doc.id)
+            
+            doc.related_document_ids = related_ids
+            
+            # 在图中添加关系边
+            for related_id in related_ids:
+                self.graph.add_edge(doc.id, related_id, relationship="references")
+    
+    # 保持原有的搜索、保存、加载等方法...
+    def search(self, query: str, jurisdiction_id: Optional[str] = None, 
+               top_k: int = 5) -> List[Tuple[str, float, Dict]]:
+        """搜索相关法律文档"""
+        query_embedding = self.embedding_model.embed_query(query)
+        query_embedding = np.array(query_embedding).reshape(1, -1)
+        
+        # 确定搜索范围
+        if jurisdiction_id:
+            applicable_doc_ids = self.get_applicable_laws(jurisdiction_id)
+        else:
+            applicable_doc_ids = list(self.documents.keys())
+        
+        # 计算相似度
+        results = []
+        for doc_id in applicable_doc_ids:
+            if doc_id not in self.document_embeddings:
+                continue
+            
+            doc = self.documents[doc_id]
+            embeddings = self.document_embeddings[doc_id]
+            
+            similarities = cosine_similarity(query_embedding, embeddings)[0]
+            
+            for i, (chunk, sim) in enumerate(zip(doc.chunks, similarities)):
+                results.append((
+                    chunk,
+                    float(sim),
+                    {
+                        'document_id': doc_id,
+                        'document_title': doc.title,
+                        'jurisdiction': self.jurisdictions[doc.jurisdiction_id].name,
+                        'document_type': doc.document_type,
+                        'chunk_index': i,
+                        **doc.metadata
+                    }
                 ))
         
-        return split_docs
+        results.sort(key=lambda x: x[1], reverse=True)
+        return results[:top_k]
     
-    def _determine_chunk_type(self, chunk: str, doc_metadata: Dict) -> str:
-        """确定分块的具体类型"""
-        doc_type = doc_metadata.get('document_type', '')
+    def get_applicable_laws(self, jurisdiction_id: str) -> List[str]:
+        """获取适用于特定管辖区的所有法律"""
+        applicable_doc_ids = set()
         
-        if doc_type == 'Terminology Table':
-            return 'definition'
-        elif 'Article' in chunk:
-            return 'article'
-        elif 'Section' in chunk:
-            return 'section'
-        elif re.search(r'\([a-z]\)', chunk):
-            return 'subsection'
-        elif re.search(r'\(\d+\)', chunk):
-            return 'paragraph'
+        if jurisdiction_id not in self.jurisdictions:
+            return []
+        
+        # 获取当前管辖区的文档
+        applicable_doc_ids.update(self.jurisdictions[jurisdiction_id].document_ids)
+        
+        # 递归获取父管辖区的文档
+        current_id = jurisdiction_id
+        visited = set()
+        
+        while current_id in self.jurisdictions and current_id not in visited:
+            visited.add(current_id)
+            parent_id = self.jurisdictions[current_id].parent_id
+            
+            if parent_id and parent_id in self.jurisdictions:
+                applicable_doc_ids.update(self.jurisdictions[parent_id].document_ids)
+                current_id = parent_id
+            else:
+                break
+        
+        return list(applicable_doc_ids)
+    
+    def save(self, base_path: str = "./legal_graph_db"):
+        """保存图谱数据"""
+        base_path = Path(base_path)
+        base_path.mkdir(exist_ok=True)
+        
+        # 保存管辖区结构
+        jurisdictions_data = {
+            jur_id: jur.to_dict() 
+            for jur_id, jur in self.jurisdictions.items()
+        }
+        with open(base_path / "jurisdictions.json", 'w', encoding='utf-8') as f:
+            json.dump(jurisdictions_data, f, ensure_ascii=False, indent=2)
+        
+        # 保存文档数据
+        documents_data = {
+            doc_id: doc.to_dict()
+            for doc_id, doc in self.documents.items()
+        }
+        with open(base_path / "documents.json", 'w', encoding='utf-8') as f:
+            json.dump(documents_data, f, ensure_ascii=False, indent=2)
+        
+        # 保存图结构
+        graph_data = {
+            'nodes': list(self.graph.nodes()),
+            'edges': [(u, v, data) for u, v, data in self.graph.edges(data=True)]
+        }
+        with open(base_path / "graph_structure.json", 'w', encoding='utf-8') as f:
+            json.dump(graph_data, f, ensure_ascii=False, indent=2)
+        
+        # 保存向量嵌入
+        with open(base_path / "embeddings.pkl", 'wb') as f:
+            pickle.dump(self.document_embeddings, f)
+        
+        print(f"图谱数据已保存到: {base_path}")
+    
+    def load(self, base_path: str = "./legal_graph_db"):
+        """加载图谱数据"""
+        base_path = Path(base_path)
+        
+        # 加载管辖区结构
+        with open(base_path / "jurisdictions.json", 'r', encoding='utf-8') as f:
+            jurisdictions_data = json.load(f)
+        
+        self.jurisdictions = {}
+        for jur_id, jur_data in jurisdictions_data.items():
+            jur = JurisdictionNode(
+                id=jur_data['id'],
+                name=jur_data['name'],
+                level=JurisdictionLevel(jur_data['level']),
+                parent_id=jur_data.get('parent_id'),
+                children_ids=jur_data.get('children_ids', []),
+                document_ids=jur_data.get('document_ids', []),
+                metadata=jur_data.get('metadata', {})
+            )
+            self.jurisdictions[jur_id] = jur
+        
+        # 加载文档数据
+        with open(base_path / "documents.json", 'r', encoding='utf-8') as f:
+            documents_data = json.load(f)
+        
+        self.documents = {}
+        for doc_id, doc_data in documents_data.items():
+            doc = LegalDocument(
+                id=doc_data['id'],
+                title=doc_data['title'],
+                content=doc_data['content'],
+                jurisdiction_id=doc_data['jurisdiction_id'],
+                document_type=doc_data['document_type'],
+                chunks=doc_data.get('chunks', []),
+                metadata=doc_data.get('metadata', {}),
+                related_document_ids=doc_data.get('related_document_ids', [])
+            )
+            self.documents[doc_id] = doc
+        
+        # 加载图结构
+        with open(base_path / "graph_structure.json", 'r', encoding='utf-8') as f:
+            graph_data = json.load(f)
+        
+        self.graph = nx.DiGraph()
+        for node in graph_data['nodes']:
+            if node in self.jurisdictions:
+                self.graph.add_node(node, node_type="jurisdiction", 
+                                  data=self.jurisdictions[node])
+            elif node in self.documents:
+                self.graph.add_node(node, node_type="document",
+                                  data=self.documents[node])
+        
+        for u, v, data in graph_data['edges']:
+            self.graph.add_edge(u, v, **data)
+        
+        # 加载向量嵌入
+        with open(base_path / "embeddings.pkl", 'rb') as f:
+            self.document_embeddings = pickle.load(f)
+        
+        print(f"图谱数据已从 {base_path} 加载")
+    
+    def visualize_graph_stats(self):
+        """可视化图谱统计信息"""
+        print("\n=== 法律图谱统计信息 ===")
+        print(f"管辖区节点数: {len(self.jurisdictions)}")
+        print(f"文档节点数: {len(self.documents)}")
+        print(f"图中总节点数: {self.graph.number_of_nodes()}")
+        print(f"图中总边数: {self.graph.number_of_edges()}")
+        
+        print("\n=== 法律体系结构 ===")
+        # 显示各体系结构
+        systems = {"reference": [], "eu": [], "usa": []}
+        
+        for jur_id, jur in self.jurisdictions.items():
+            if jur_id == "reference":
+                systems["reference"].append(jur)
+            elif jur.parent_id == "eu" or jur_id == "eu":
+                systems["eu"].append(jur)
+            elif jur.parent_id == "usa" or jur_id == "usa":
+                systems["usa"].append(jur)
+        
+        for system_name, jurs in systems.items():
+            if not jurs:
+                continue
+                
+            system_display_name = {
+                "reference": "参考文档体系",
+                "eu": "欧盟法律体系", 
+                "usa": "美国法律体系"
+            }[system_name]
+            
+            print(f"\n{system_display_name}:")
+            
+            # 构建树形显示
+            def print_tree(jur_id, level=1):
+                if jur_id not in self.jurisdictions:
+                    return
+                jur = self.jurisdictions[jur_id]
+                doc_count = len(jur.document_ids)
+                indent = "  " * level
+                doc_info = f" ({doc_count} 个文档)" if doc_count > 0 else ""
+                print(f"{indent}├─ {jur.name} [{jur.level.value}]{doc_info}")
+                
+                for child_id in jur.children_ids:
+                    print_tree(child_id, level + 1)
+            
+            # 找出该体系的根节点
+            if system_name == "reference":
+                print_tree("reference")
+            elif system_name == "eu":
+                print_tree("eu")
+            elif system_name == "usa":
+                print_tree("usa")
+        
+        print("\n=== 文档类型分布 ===")
+        doc_types = {}
+        for doc in self.documents.values():
+            doc_type = doc.document_type
+            doc_types[doc_type] = doc_types.get(doc_type, 0) + 1
+        
+        for doc_type, count in sorted(doc_types.items(), key=lambda x: x[1], reverse=True):
+            print(f"{doc_type}: {count} 个文档")
+
+
+def build_legal_graph_rag(knowledge_dir: str = "knowledge",
+                         qwen_api_url: str = None,
+                         qwen_api_key: str = None):
+    """构建法律图谱RAG系统的主函数"""
+    
+    print("=== 开始构建增强版法律图谱RAG系统 ===")
+    print("流程: 文本清洗 → 大模型分类 → 图节点构建 → 智能分块 → 向量化")
+    
+    # 初始化图谱系统
+    graph_rag = LegalGraphRAG(
+        embedding_model_name="BAAI/bge-base-en-v1.5",
+        max_chunk_size=800,
+        overlap_size=100,
+        qwen_api_url=qwen_api_url,
+        qwen_api_key=qwen_api_key
+    )
+    
+    print(f"\n正在从目录加载文档: {knowledge_dir}")
+    
+    # 从目录批量处理文档
+    processed_docs = graph_rag.build_from_directory(knowledge_dir)
+    
+    # 显示统计信息
+    graph_rag.visualize_graph_stats()
+    
+    # 保存图谱
+    print("\n正在保存图谱数据...")
+    graph_rag.save("./legal_graph_db")
+    
+    print(f"\n=== 法律图谱RAG系统构建完成！处理了 {len(processed_docs)} 个文档 ===")
+    
+    return graph_rag
+
+
+def demo_enhanced_search():
+    """演示增强版搜索功能"""
+    print("\n=== 增强版法律图谱搜索演示 ===")
+    
+    # 加载已保存的图谱
+    graph_rag = LegalGraphRAG()
+    try:
+        graph_rag.load("./legal_graph_db")
+    except FileNotFoundError:
+        print("未找到已保存的图谱数据，请先运行构建过程")
+        return
+    
+    # 演示不同类型的搜索
+    test_queries = [
+        {
+            "query": "social media age verification requirements",
+            "jurisdiction": "utah",
+            "description": "在犹他州搜索社交媒体年龄验证要求"
+        },
+        {
+            "query": "data protection privacy user consent",
+            "jurisdiction": "eu",
+            "description": "在欧盟搜索数据保护和用户同意相关法规"
+        },
+        {
+            "query": "content moderation platform responsibilities",
+            "jurisdiction": "california", 
+            "description": "在加州搜索内容审核平台责任"
+        },
+        {
+            "query": "terminology definitions",
+            "jurisdiction": "reference",
+            "description": "在参考文档中搜索术语定义"
+        },
+        {
+            "query": "digital services obligations",
+            "jurisdiction": None,
+            "description": "全局搜索数字服务义务"
+        }
+    ]
+    
+    for test in test_queries:
+        print(f"\n{'-'*60}")
+        print(f"测试: {test['description']}")
+        print(f"查询: {test['query']}")
+        
+        if test['jurisdiction']:
+            print(f"管辖区: {test['jurisdiction']}")
+            
+            # 显示适用法律数量
+            applicable_laws = graph_rag.get_applicable_laws(test['jurisdiction'])
+            print(f"适用法律数量: {len(applicable_laws)}")
+        
+        print(f"\n搜索结果:")
+        results = graph_rag.search(
+            test['query'], 
+            test['jurisdiction'],
+            top_k=3
+        )
+        
+        if not results:
+            print("  未找到相关结果")
+            continue
+            
+        for i, (chunk, score, metadata) in enumerate(results, 1):
+            print(f"\n  [{i}] 相似度: {score:.4f}")
+            print(f"      文档: {metadata['document_title']}")
+            print(f"      类型: {metadata['document_type']}")
+            print(f"      管辖区: {metadata['jurisdiction']}")
+            if 'classification_confidence' in metadata:
+                print(f"      分类置信度: {metadata['classification_confidence']:.2f}")
+            print(f"      内容片段: {chunk[:200]}...")
+
+
+def main():
+    """主函数"""
+    import sys
+    import argparse
+    
+    if len(sys.argv) == 1:
+        # 没有参数时显示帮助信息
+        print("增强版法律图谱RAG系统")
+        print("使用方法:")
+        print("  python script.py build [--knowledge-dir DIR] [--api-url URL] [--api-key KEY]")
+        print("  python script.py search")  
+        print("  python script.py interactive")
+        print("\n环境变量:")
+        print("  DASHSCOPE_API_KEY - 千问API密钥")
+        print("\n注意: 如未设置API密钥，程序将提示输入或使用免费方案")
+        return
+    
+    parser = argparse.ArgumentParser(description='Enhanced Legal Graph RAG with Qwen')
+    parser.add_argument('command', choices=['build', 'search', 'interactive'],
+                       help='要执行的命令')
+    parser.add_argument('--knowledge-dir', default='knowledge', 
+                       help='知识库目录路径 (默认: knowledge)')
+    parser.add_argument('--api-url', 
+                       default='http://localhost:8000/v1/chat/completions',
+                       help='千问API地址 (默认: 本地免费方案)')
+    parser.add_argument('--api-key', 
+                       help='千问API密钥 (可选，也可通过环境变量设置)')
+    
+    try:
+        args = parser.parse_args()
+    except SystemExit:
+        return
+    
+    if args.command == "build":
+        # 构建新的图谱
+        print(f"使用API地址: {args.api_url}")
+        if args.api_key:
+            print("使用命令行提供的API密钥")
+        elif os.getenv("DASHSCOPE_API_KEY"):
+            print("使用环境变量中的API密钥")
         else:
-            return 'legal_text'
+            print("将提示输入API密钥或使用免费方案")
+        
+        graph_rag = build_legal_graph_rag(
+            knowledge_dir=args.knowledge_dir,
+            qwen_api_url=args.api_url,
+            qwen_api_key=args.api_key
+        )
+        
+    elif args.command == "search":
+        # 演示搜索功能
+        demo_enhanced_search()
+        
+    elif args.command == "interactive":
+        # 交互式搜索
+        graph_rag = LegalGraphRAG()
+        try:
+            graph_rag.load("./legal_graph_db")
+            
+            print("\n=== 交互式法律搜索系统 ===")
+            print("输入 'quit' 退出程序")
+            print("可用管辖区: usa, california, utah, florida, texas, eu, germany, france, italy, spain, netherlands, reference")
+            
+            while True:
+                print("\n" + "-" * 50)
+                try:
+                    query = input("请输入搜索查询: ").strip()
+                    if query.lower() in ['quit', 'exit', 'q']:
+                        break
+                    
+                    jurisdiction = input("限定管辖区 (留空表示全局搜索): ").strip()
+                    if not jurisdiction:
+                        jurisdiction = None
+                    
+                    results = graph_rag.search(query, jurisdiction, top_k=5)
+                    
+                    print(f"\n找到 {len(results)} 个相关结果:")
+                    for i, (chunk, score, metadata) in enumerate(results, 1):
+                        print(f"\n[{i}] {metadata['document_title']} (相似度: {score:.3f})")
+                        print(f"    管辖区: {metadata['jurisdiction']}")
+                        print(f"    类型: {metadata['document_type']}")
+                        print(f"    内容: {chunk[:300]}...")
+                        
+                except KeyboardInterrupt:
+                    print("\n\n程序被用户中断")
+                    break
+                except EOFError:
+                    print("\n\n程序结束")
+                    break
+                    
+        except FileNotFoundError:
+            print("未找到图谱数据，请先运行 'python script.py build' 构建图谱")
+        except Exception as e:
+            print(f"启动交互式搜索时出错: {e}")
 
-
-def build_legal_knowledge_base():
-    """构建法律知识库的主函数"""
-    
-    print("正在加载法律文档...")
-    # 1. 加载所有文档
-    loader = DirectoryLoader(
-        "knowledge",
-        glob="**/*.txt",
-        show_progress=True,
-        loader_cls=TextLoader,
-        loader_kwargs={"autodetect_encoding": True}
-    )
-    
-    documents = loader.load()
-    print(f"已加载 {len(documents)} 个文档")
-    
-    # 2. 使用智能法律文档分块器
-    legal_splitter = LegalDocumentSplitter(max_chunk_size=800, overlap_size=100)
-    chunks = legal_splitter.split_documents(documents)
-    
-    print(f"文档已分割为 {len(chunks)} 个智能块")
-    
-    # 显示一些分块示例
-    print("\n=== 分块示例 ===")
-    for i, chunk in enumerate(chunks[:3]):
-        print(f"\n--- 块 {i+1} ---")
-        print(f"元数据: {chunk.metadata}")
-        print(f"内容预览: {chunk.page_content[:200]}...")
-    
-    # 3. 初始化嵌入模型
-    print("\n正在初始化嵌入模型...")
-    embedding_model = HuggingFaceEmbeddings(model_name="BAAI/bge-base-en-v1.5")
-    
-    # 4. 创建向量数据库
-    print("正在构建向量数据库...")
-    vector_store = Chroma.from_documents(
-        documents=chunks,
-        embedding=embedding_model,
-        persist_directory="./legal_compliance_db"
-    )
-    
-    print("法律知识库构建完成！")
-    return vector_store
 
 if __name__ == "__main__":
-    # 首先演示文本清理效果
-    demonstrate_text_cleaning()
-    
-    # 构建知识库
-    vector_store = build_legal_knowledge_base()
-    
+    main()
