@@ -673,17 +673,19 @@ UnspecifiedNeedsHuman: 如果LegalRequiremen或BusinessDriven的得分低于0.8�
         detected_jurisdictions = self.geo_detector.detect_jurisdictions(feature_description)
         if detected_jurisdictions:
             print(f"  ✓ 检测到管辖区: {detected_jurisdictions}")
+            print("步骤3: Graph RAG法律证据搜索")
+            search_query = f"{feature_description} legal requirements compliance regulation"
+            
+            legal_evidence = self._search_legal_evidence(search_query, detected_jurisdictions)
+            print(f"  ✓ 找到 {len(legal_evidence)} 条法律证据")
         else:
             print("  - 未检测到特定管辖区")
-        
-        # 步骤3: 法律证据搜索
-        print("步骤3: Graph RAG法律证据搜索")
-        search_query = f"{feature_description} legal requirements compliance regulation"
-        
-        legal_evidence = self._search_legal_evidence(search_query, detected_jurisdictions)
-        print(f"  ✓ 找到 {len(legal_evidence)} 条法律证据")
+            print("步骤3: Graph RAG法律证据搜索")
+            legal_evidence = []
+            print("  - 跳过法律证据搜索")
         
         # 步骤4: 构建上下文
+        print("步骤4: 构建上下文")
         context = "\n\n".join(legal_evidence) if legal_evidence else "NO_LEGAL_EVIDENCE_FOUND"
         
         # 步骤5: LLM分析与分类
@@ -805,7 +807,7 @@ def main():
     test_features = [
         {
             "name": "",
-            "description": "A video filter feature is available globally except KR"
+            "description": "eature reads user location to enforce France's copyright rules"
         }
     ]
     
