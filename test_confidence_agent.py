@@ -1,7 +1,7 @@
 import json
 import os
 from confidence_agent import ConfidenceAgent
-from main import EnhancedLegalClassifier
+from main import OptimizedLegalClassifier
 
 def test_confidence_agent():
     """
@@ -10,13 +10,13 @@ def test_confidence_agent():
     print("=== 置信度评估Agent - 测试脚本 ===\n")
     
     # 设置向量数据库路径
-    vector_db_path = os.path.join(os.getcwd(), "legal_compliance_db1")
+    vector_db_path = os.path.join(os.getcwd(), "dynamic_legal_graph_db")
     print(f"向量数据库路径: {vector_db_path}")
     
     # 初始化法律分类器和置信度评估Agent
     try:
         print("初始化法律分类器...")
-        legal_classifier = EnhancedLegalClassifier(
+        legal_classifier = OptimizedLegalClassifier(
             graph_db_path=vector_db_path
         )
         
@@ -34,20 +34,20 @@ def test_confidence_agent():
     test_cases = [
         # 案例1: 可能高置信度的案例 - 明确的法律要求
         {
-            "name": "明确的法律要求案例",
-            "description": "Curfew login blocker with ASL and GH for Utah minors: To comply with the Utah Social Media Regulation Act, we are implementing a curfew-based login restriction for users under 18. The system uses ASL to detect minor accounts and routes enforcement through GH to apply only within Utah boundaries."
+            "name": "Curfew login blocker with ASL and GH for Utah minors",
+            "description": "To comply with the Utah Social Media Regulation Act, we are implementing a curfew-based login restriction for users under 18. The system uses ASL to detect minor accounts and routes enforcement through GH to apply only within Utah boundaries."
         },
         
         # 案例2: 可能中等置信度的案例 - 部分法律依据
         {
-            "name": "部分法律依据案例",
-            "description": "Content visibility lock with NSP for EU DSA: To meet the transparency expectations of the EU Digital Services Act, we are introducing a visibility lock for flagged user-generated content labeled under NSP. When such content is detected, a soft Softblock is applied."
+            "name": "PF default toggle with NR enforcement for California teens",
+            "description": "As part of compliance with California’s SB976, the app will disable PF by default for users under 18 located in California. This default setting is considered NR to override, unless explicit parental opt-in is provided. Geo-detection is handled via GH, and rollout is monitored with FR logs. The design ensures minimal disruption while meeting the strict personalization requirements imposed by the law."
         },
         
         # 案例3: 可能低置信度的案例 - 缺乏明确法律依据
         {
-            "name": "缺乏明确法律依据案例",
-            "description": "Universal PF deactivation on guest mode: By default, PF will be turned off for all users browsing in guest mode."
+            "name": "Child abuse content scanner using T5 and CDS triggers",
+            "description": "In line with the US federal law requiring providers to report child sexual abuse content to NCMEC, this feature scans uploads and flags suspected materials tagged as T5. Once flagged, the CDS auto-generates reports and routes them via secure channel APIs. The logic runs in real-time, supports human validation, and logs detection metadata for internal audits. Regional thresholds are governed by LCP parameters in the backend."
         },
         
         # 案例4: 可能混合信号的案例 - 法律和商业因素混合

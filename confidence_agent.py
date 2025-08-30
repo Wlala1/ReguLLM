@@ -5,14 +5,14 @@ from langchain_community.chat_models.tongyi import ChatTongyi
 from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
-from main import EnhancedLegalClassifier
+from main import OptimizedLegalClassifier
 
 class ConfidenceAgent:
     """
     置信度评估Agent - 对置信度低的功能标签进行反思和判断
     
     工作流程：
-    1. 接收EnhancedLegalClassifier的分类结果
+    1. 接收OptimizedLegalClassifier的分类结果
     2. 评估置信度是否低于阈值
     3. 如果置信度低，进行深度反思分析
     4. 输出最终判断：确认原标签、修正标签或标记为需要人工干预
@@ -21,7 +21,7 @@ class ConfidenceAgent:
     def __init__(self, 
                  confidence_threshold: float = 0.7,
                  model_name: str = "qwen-max",
-                 legal_classifier: Optional[EnhancedLegalClassifier] = None):
+                 legal_classifier: Optional[OptimizedLegalClassifier] = None):
         """
         初始化置信度评估Agent
         
@@ -42,7 +42,7 @@ class ConfidenceAgent:
         
         # 初始化或复用法律分类器
         print("3. 初始化法律分类器...")
-        self.legal_classifier = legal_classifier if legal_classifier else EnhancedLegalClassifier()
+        self.legal_classifier = legal_classifier if legal_classifier else OptimizedLegalClassifier()
         
         # 初始化输出解析器
         print("4. 初始化输出解析器...")
@@ -135,7 +135,7 @@ class ConfidenceAgent:
         评估分类结果的置信度，并在必要时进行深度反思
         
         Args:
-            classification_result: EnhancedLegalClassifier的分类结果
+            classification_result: OptimizedLegalClassifier的分类结果
             feature_description: 原始功能描述
             
         Returns:
@@ -292,7 +292,7 @@ def main():
     
     # 初始化法律分类器和置信度评估Agent
     try:
-        legal_classifier = EnhancedLegalClassifier(
+        legal_classifier = OptimizedLegalClassifier(
             graph_db_path="/Users/yanjin/vscode/ReguLLM/legal_compliance_db1"  # 请根据实际路径修改
         )
         confidence_agent = ConfidenceAgent(
