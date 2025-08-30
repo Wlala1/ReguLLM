@@ -1,0 +1,160 @@
+{
+  "reference": {
+    "id": "reference",
+    "name": "Reference Documents",
+    "level": "reference",
+    "parent_id": null,
+    "children_ids": [],
+    "document_ids": [
+      "6564502ee371"
+    ],
+    "metadata": {
+      "is_root_node": true,
+      "initialization_type": "base"
+    }
+  },
+  "eu": {
+    "id": "eu",
+    "name": "European Union",
+    "level": "international",
+    "parent_id": null,
+    "children_ids": [],
+    "document_ids": [
+      "1f40fc904988"
+    ],
+    "metadata": {
+      "is_root_node": true,
+      "initialization_type": "base"
+    }
+  },
+  "usa": {
+    "id": "usa",
+    "name": "United States",
+    "level": "federal",
+    "parent_id": null,
+    "children_ids": [
+      "california",
+      "utah",
+      "florida"
+    ],
+    "document_ids": [
+      "d05487606c4c"
+    ],
+    "metadata": {
+      "is_root_node": true,
+      "initialization_type": "base"
+    }
+  },
+  "canada": {
+    "id": "canada",
+    "name": "Canada",
+    "level": "federal",
+    "parent_id": null,
+    "children_ids": [],
+    "document_ids": [],
+    "metadata": {
+      "is_root_node": true,
+      "initialization_type": "base"
+    }
+  },
+  "uk": {
+    "id": "uk",
+    "name": "United Kingdom",
+    "level": "federal",
+    "parent_id": null,
+    "children_ids": [],
+    "document_ids": [],
+    "metadata": {
+      "is_root_node": true,
+      "initialization_type": "base"
+    }
+  },
+  "china": {
+    "id": "china",
+    "name": "China",
+    "level": "federal",
+    "parent_id": null,
+    "children_ids": [],
+    "document_ids": [],
+    "metadata": {
+      "is_root_node": true,
+      "initialization_type": "base"
+    }
+  },
+  "california": {
+    "id": "california",
+    "name": "California",
+    "level": "state",
+    "parent_id": "usa",
+    "children_ids": [],
+    "document_ids": [
+      "b0cc0d3e1f4a"
+    ],
+    "metadata": {
+      "auto_created": true,
+      "creation_timestamp": 1756571170.616061,
+      "source_classification": {
+        "jurisdiction_code": "california",
+        "jurisdiction_name": "California",
+        "jurisdiction_level": "state",
+        "parent_jurisdiction": "usa",
+        "document_type": "bill",
+        "confidence": 0.98,
+        "title": "Protecting Our Kids from Social Media Addiction Act",
+        "year": 2024,
+        "bill_number": "SB 976"
+      }
+    }
+  },
+  "utah": {
+    "id": "utah",
+    "name": "Utah",
+    "level": "state",
+    "parent_id": "usa",
+    "children_ids": [],
+    "document_ids": [
+      "316eb7cf6898",
+      "a17381177ce9"
+    ],
+    "metadata": {
+      "auto_created": true,
+      "creation_timestamp": 1756571189.867593,
+      "source_classification": {
+        "jurisdiction_code": "utah",
+        "jurisdiction_name": "Utah",
+        "jurisdiction_level": "state",
+        "parent_jurisdiction": "usa",
+        "document_type": "bill",
+        "confidence": 0.98,
+        "title": "SOCIAL MEDIA REGULATION AMENDMENTS",
+        "year": 2023,
+        "bill_number": "SB0152"
+      }
+    }
+  },
+  "florida": {
+    "id": "florida",
+    "name": "Florida",
+    "level": "state",
+    "parent_id": "usa",
+    "children_ids": [],
+    "document_ids": [
+      "c03b499ad823"
+    ],
+    "metadata": {
+      "auto_created": true,
+      "creation_timestamp": 1756571526.395356,
+      "source_classification": {
+        "jurisdiction_code": "florida",
+        "jurisdiction_name": "Florida",
+        "jurisdiction_level": "state",
+        "parent_jurisdiction": "usa",
+        "document_type": "bill",
+        "confidence": 0.98,
+        "title": "An act relating to online access to materials harmful to minors",
+        "year": null,
+        "bill_number": "hb0003"
+      }
+    }
+  }
+}

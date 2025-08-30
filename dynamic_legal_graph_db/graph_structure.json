@@ -1,0 +1,92 @@
+{
+  "nodes": [
+    "reference",
+    "eu",
+    "usa",
+    "canada",
+    "uk",
+    "china",
+    "6564502ee371",
+    "california",
+    "b0cc0d3e1f4a",
+    "utah",
+    "316eb7cf6898",
+    "d05487606c4c",
+    "1f40fc904988",
+    "florida",
+    "c03b499ad823",
+    "a17381177ce9"
+  ],
+  "edges": [
+    [
+      "reference",
+      "6564502ee371",
+      {
+        "relationship": "contains"
+      }
+    ],
+    [
+      "eu",
+      "1f40fc904988",
+      {
+        "relationship": "contains"
+      }
+    ],
+    [
+      "usa",
+      "california",
+      {
+        "relationship": "governs"
+      }
+    ],
+    [
+      "usa",
+      "utah",
+      {
+        "relationship": "governs"
+      }
+    ],
+    [
+      "usa",
+      "d05487606c4c",
+      {
+        "relationship": "contains"
+      }
+    ],
+    [
+      "usa",
+      "florida",
+      {
+        "relationship": "governs"
+      }
+    ],
+    [
+      "california",
+      "b0cc0d3e1f4a",
+      {
+        "relationship": "contains"
+      }
+    ],
+    [
+      "utah",
+      "316eb7cf6898",
+      {
+        "relationship": "contains"
+      }
+    ],
+    [
+      "utah",
+      "a17381177ce9",
+      {
+        "relationship": "contains"
+      }
+    ],
+    [
+      "florida",
+      "c03b499ad823",
+      {
+        "relationship": "contains"
+      }
+    ]
+  ]
+}
