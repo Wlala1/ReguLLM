@@ -386,45 +386,24 @@ class OptimizedGraphRAGRetriever:
 class GeographicJurisdictionDetector:
     """地理管辖区检测器"""
     
-    def __init__(self):
-        self.location_patterns = self._build_location_patterns()
-    
-    def _build_location_patterns(self) -> Dict[str, List[str]]:
-        """构建地理位置匹配模式"""
-        patterns = {
-            # 美国各州
-            "california": ["california", "ca ", "calif", "golden state"],
-            "utah": ["utah", "ut ", "beehive state"],
-            "florida": ["florida", "fl ", "fla", "sunshine state"],
-            "texas": ["texas", "tx ", "tex", "lone star"],
-            "usa": ["usa", "united states", "us ", "america", "federal", "u.s."],
-            
-            # 欧盟及成员国
-            "eu": ["eu ", "european union", "europe", "eea", "european economic area"],
-            "germany": ["germany", "german", "deutschland", "de "],
-            "france": ["france", "french", "fr "],
-            "italy": ["italy", "italian", "it "],
-            "spain": ["spain", "spanish", "es "],
-            "netherlands": ["netherlands", "dutch", "holland", "nl "],
-            
-            # 参考文档
-            "reference": ["terminology", "definitions", "glossary", "reference"]
-        }
-        return patterns
+    def __init__(self, llm):
+        self.llm = llm
+        self.allowlist = ["usa","california","utah","florida","texas","eu","germany","france","italy","spain","netherlands"]
     
     def detect_jurisdictions(self, text: str) -> List[str]:
         """检测文本中涉及的管辖区"""
-        text_lower = text.lower()
-        detected_jurisdictions = []
+        prompt = (
+            "Extract ALL jurisdictions from the text.\n"
+            f"Allowed values (lowercase only): {self.allowlist}\n"
+            "Return a JSON array of strings using ONLY the allowed values. If none, return [].\n"
+            "Do not include any text outside the JSON.\n\n"
+            f"Text:\n{text}"
+        )
+        resp = self.llm.invoke(prompt)
+        arr = json.loads(resp.content)               # 解析
+        arr = [x for x in arr if x in self.allowlist]         # 客户端再白名单过滤
+        detected_jurisdictions = list(dict.fromkeys(arr))               # 去重并保序
         
-        for jurisdiction_id, patterns in self.location_patterns.items():
-            for pattern in patterns:
-                if pattern in text_lower:
-                    if jurisdiction_id not in detected_jurisdictions:
-                        detected_jurisdictions.append(jurisdiction_id)
-                    break
-        
-        # 处理层级关系
         state_to_country = {
             "california": "usa", "utah": "usa", "florida": "usa", "texas": "usa",
             "germany": "eu", "france": "eu", "italy": "eu", "spain": "eu", "netherlands": "eu"
@@ -463,7 +442,7 @@ class OptimizedLegalClassifier:
         self.jargon_translator = JargonTranslator(graph_db_path)
         
         print("4. 初始化地理管辖区检测器...")
-        self.geo_detector = GeographicJurisdictionDetector()
+        self.geo_detector = GeographicJurisdictionDetector( self.llm)
         
         print("5. 初始化提示模板...")
         self.parser = JsonOutputParser()
