@@ -160,6 +160,14 @@ def automated_feedback_workflow():
         {
             "name": "",
             "description": "A picture filter feature is available globally except Indonesia"
+        },
+        {
+            "name": "",
+            "description": "A text filter feature is available globally except China"
+        },
+        {
+            "name": "",
+            "description": "A picture filter feature is available globally except Thailand"
         }
     ]
     
