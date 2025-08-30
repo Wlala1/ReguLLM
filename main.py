@@ -630,7 +630,8 @@ UnspecifiedNeedsHuman (得分 0-1)：
                         source_info += f"Doc: {doc['metadata'].get('document_title', 'Unknown')} | "
                         source_info += f"Type: {doc['metadata'].get('document_type', 'Unknown')} | "
                         source_info += f"Jurisdiction: {doc['metadata'].get('jurisdiction_id', 'Unknown')}"
-                        
+                        1
+                
                         content = f"{source_info}\nContent: {doc['page_content'][:1000]}"
                         all_results.append(content)
                         
