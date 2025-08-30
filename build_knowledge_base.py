@@ -915,63 +915,8 @@ def build_dynamic_legal_graph_rag(knowledge_dir: str = "knowledge",
     return graph_rag
 
 
-def demo_dynamic_search():
-    """演示动态法律图谱搜索功能"""
-    print("\n=== 动态法律图谱搜索演示 ===")
-    
-    # 加载已保存的图谱
-    graph_rag = DynamicLegalGraphRAG()
-    try:
-        graph_rag.load("./dynamic_legal_graph_db")
-    except FileNotFoundError:
-        print("未找到已保存的图谱数据，请先运行构建过程")
-        return
-    
-    # 演示搜索功能
-    test_queries = [
-        {
-            "query": "social media age verification requirements",
-            "jurisdiction": None,
-            "description": "全局搜索社交媒体年龄验证要求"
-        },
-        {
-            "query": "data protection privacy user consent",
-            "jurisdiction": "eu",
-            "description": "在欧盟搜索数据保护和用户同意相关法规"
-        }
-    ]
-    
-    for test in test_queries:
-        print(f"\n{'-'*60}")
-        print(f"测试: {test['description']}")
-        print(f"查询: {test['query']}")
-        
-        if test['jurisdiction']:
-            print(f"管辖区: {test['jurisdiction']}")
-        
-        print("\n--- 搜索结果 ---")
-        results = graph_rag.search(
-            test['query'], 
-            test['jurisdiction'],
-            top_k=3
-        )
-        
-        if not results:
-            print("  未找到相关结果")
-            continue
-            
-        for i, (chunk, score, metadata) in enumerate(results, 1):
-            print(f"\n  [{i}] 相似度: {score:.4f}")
-            print(f"      文档: {metadata.get('document_title', 'Unknown')}")
-            print(f"      类型: {metadata.get('document_type', 'Unknown')}")
-            print(f"      管辖区: {metadata.get('jurisdiction', 'Unknown')}")
-            print(f"      内容片段: {chunk[:200]}...")
-
-
 def main():
     """主函数 - 构建动态Graph RAG知识库"""
-    
-    # 配置参数
     knowledge_dir = "knowledge"
     qwen_api_url = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
     qwen_api_key = None
@@ -1005,16 +950,10 @@ def main():
         print("  - embeddings.pkl (向量嵌入)")
         print("  - config.json (配置信息)")
         
-        # 可选：运行搜索演示
-        print("\n是否运行搜索演示？(y/n): ", end="")
-        if input().lower().strip() == 'y':
-            demo_dynamic_search()
-        
     except Exception as e:
         print(f"构建过程中出现错误: {e}")
         import traceback
         traceback.print_exc()
-
 
 if __name__ == "__main__":
     main()
