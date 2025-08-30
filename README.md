@@ -77,7 +77,7 @@ Files encoded as UTF-8 / GBK / GB2312 are supported.
 
 ### Step 1 — Build the knowledge base
 
-Reads files from `knowledge/`, creates embeddings, builds the (graph) index, and saves .pkl artifacts to './legal_graph_db' (configurable).
+Reads files from `knowledge/`, creates embeddings, builds the (graph) index, and saves .pkl artifacts to './dynamic_legal_graph_db' (configurable).
 
 ```bash
 python build_knowledge_base.py
@@ -113,7 +113,7 @@ python app.py
   * `confidence_agent.py`
 
 
-*The top-level repo also includes directories like `legal_graph_db/`. See the GitHub file list for the current state.*
+*The top-level repo also includes directories like `dynamic_legal_graph_db/`. See the GitHub file list for the current state.*
 
 -----
 

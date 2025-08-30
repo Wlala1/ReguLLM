@@ -433,7 +433,7 @@ class OptimizedLegalClassifier:
     """Optimized Legal Classifier - Pure Graph RAG Version"""
     
     def __init__(self, 
-                 graph_db_path: str = "./legal_graph_db",
+                 graph_db_path: str = "./dynamic_legal_graph_db",
                  model_name: str = "qwen-max-latest"):
         
         print("=== Initializing Optimized Legal Classifier (Pure Graph RAG Version) ===")
@@ -466,7 +466,7 @@ class OptimizedLegalClassifier:
         template = """
 You are a senior legal compliance analyst with Graph RAG legal knowledge graph search capabilities.
 
-Task: Accurately classify feature characteristics into one of the following three categories:
+Task: Accurately classify feature characteristics into one of the following three categories. Your analysis must clearly link the feature to specific, quoted legal provisions from the provided evidence.
 - "LegalRequirement"      (Legal/regulatory/compliance requirement enforcement)
 - "BusinessDriven"        (Product strategy/experimentation/security choice; non-legally mandated requirements)
 - "UnspecifiedNeedsHuman" (Unclear intent or missing/conflicting evidence)
@@ -501,7 +501,7 @@ Output Requirements:
 {{
   "assessment": "LegalRequirement" | "BusinessDriven" | "UnspecifiedNeedsHuman",
   "needs_compliance_logic": true | false | null,
-  "reasoning": "Evidence-based detailed analysis ≤200 words",
+  "reasoning": "Evidence-based detailed analysis (≤200 words). If 'LegalRequirement', you MUST explicitly cite the specific regulation and article (e.g., 'Based on GDPR Art. 7...') from the evidence that mandates the feature's behavior.",
   "detected_jurisdictions": {detected_jurisdictions},
   "translated_jargon": {found_jargons},
   "jurisdictions": ["determined applicable jurisdictions"],
@@ -512,10 +512,10 @@ Output Requirements:
       "jurisdiction": "jurisdiction",
       "relevance": 0.0-1.0,
       "passages": [
-        {{"quote": "key provisions ≤200 chars", "source_id": "document ID"}}
+        {{"quote": "The verbatim key provision (≤200 chars) from the legal evidence that directly mandates or influences the feature.", "source_id": "document ID"}}
       ],
       "decision": "Constrained" | "NotConstrained" | "Unclear",
-      "reason": "how this regulation constrains this feature"
+      "reason": "Explain precisely how the quoted passage constrains this feature. You must reference the specific legal concept from the text (e.g., 'This passage on the right to erasure requires a data deletion mechanism')."
     }}
   ],
   "triggers": {{

@@ -700,7 +700,7 @@ class DynamicLegalGraphRAG:
             for creation_type, count in creation_types.items():
                 print(f"  - {creation_type}: {count} nodes")
 
-    def save(self, base_path: str = "./legal_graph_db"):
+    def save(self, base_path: str = "./dynamic_legal_graph_db"):
         """Save graph data - using only JSON and Pickle formats"""
         base_path = Path(base_path)
         base_path.mkdir(exist_ok=True)
@@ -746,7 +746,7 @@ class DynamicLegalGraphRAG:
         print(f"Graph data saved to: {base_path}")
         print("Storage format: JSON (metadata) + Pickle (vector embeddings)")
 
-    def load(self, base_path: str = "./legal_graph_db"):
+    def load(self, base_path: str = "./dynamic_legal_graph_db"):
         """Load graph data"""
         base_path = Path(base_path)
         
