@@ -34,7 +34,6 @@ class JargonTranslator:
             documents_path = Path(self.graph_db_path) / "documents.json"
             if not documents_path.exists():
                 print(f"警告: 文档文件不存在: {documents_path}")
-                self._add_default_jargon()
                 return
             
             with open(documents_path, 'r', encoding='utf-8') as f:
@@ -71,13 +70,13 @@ class JargonTranslator:
             
             if not terminology_found:
                 print("警告: 未找到术语表，使用默认术语")
-                self._add_default_jargon()
+                
             else:
                 print(f"术语表加载完成，共 {len(self.jargon_dict)} 个术语")
                         
         except Exception as e:
             print(f"术语表加载失败: {e}")
-            self._add_default_jargon()
+            
     
     def _looks_like_terminology(self, content: str) -> bool:
         """判断内容是否看起来像术语表"""
@@ -86,27 +85,6 @@ class JargonTranslator:
         matches = re.findall(abbreviation_pattern, content)
         return len(matches) >= 3  # 至少有3个缩写定义
     
-    def _add_default_jargon(self):
-        """添加默认的黑话术语"""
-        default_jargon = {
-            "ASL": "Age-sensitive logic",
-            "GH": "Geographic Handler", 
-            "PF": "Personalized Feed",
-            "NR": "Non-Reversible",
-            "T5": "Tier-5 Content",
-            "CDS": "Content Decision System",
-            "NSP": "Non-Safe Platform",
-            "DRT": "Data Retention Time",
-            "BB": "Black Box",
-            "Jellybean": "Parental Control Framework",
-            "Softblock": "Soft Content Block",
-            "Redline": "High-priority Alert",
-            "EchoTrace": "Activity Logging System",
-            "Snowcap": "Under-age Protection System"
-        }
-        
-        self.jargon_dict.update(default_jargon)
-        print(f"已添加 {len(default_jargon)} 个默认术语")
     
     def _extract_jargon_comprehensive(self, content: str) -> Dict[str, str]:
         """综合提取黑话术语"""
@@ -840,24 +818,8 @@ def main():
     # 测试数据
     test_features = [
         {
-            'name': 'Utah社交媒体宵禁',
-            'description': 'Curfew login blocker with ASL and GH for Utah minors: To comply with the Utah Social Media Regulation Act, we are implementing a curfew-based login restriction for users under 18. The system uses ASL to detect minor accounts and routes enforcement through GH to apply only within Utah boundaries.'
-        },
-        {
-            'name': '加州个性化推荐禁用',
-            'description': 'PF default toggle with NR enforcement for California teens: As part of compliance with California\'s SB976, the app will disable PF by default for users under 18 located in California. This default setting is considered NR to override, unless explicit parental opt-in is provided.'
-        },
-        {
-            'name': '联邦儿童保护内容扫描',
-            'description': 'Child abuse content scanner using T5 and CDS triggers: In line with the US federal law requiring providers to report child sexual abuse content to NCMEC, this feature scans uploads and flags suspected materials tagged as T5. Once flagged, the CDS auto-generates reports.'
-        },
-        {
-            'name': 'EU数字服务法内容可见性',
-            'description': 'Content visibility lock with NSP for EU DSA: To meet the transparency expectations of the EU Digital Services Act, we are introducing a visibility lock for flagged user-generated content labeled under NSP. When such content is detected, a soft Softblock is applied.'
-        },
-        {
-            'name': '通用数据保留控制',
-            'description': 'Unified retention control via DRT & CDS: Introduce a data retention feature using DRT thresholds, ensuring automatic log deletion across all regions. CDS will continuously audit retention violations, triggering EchoTrace as necessary.'
+            'name': 'Curfew login blocker with ASL and GH for Utah minors',
+            'description': 'To comply with the Utah Social Media Regulation Act, we are implementing a curfew-based login restriction for users under 18. The system uses ASL to detect minor accounts and routes enforcement through GH to apply only within Utah boundaries. The feature activates during restricted night hours and logs activity using EchoTrace for auditability. This allows parental control to be enacted without user-facing alerts, operating in ShadowMode during initial rollout.'
         }
     ]
     
