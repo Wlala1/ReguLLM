@@ -721,11 +721,20 @@ UnspecifiedNeedsHuman (得分 0-1)：
                 "found_jargons": found_jargons,
                 "context": context[:5000]  # 控制上下文长度
             }
-            
+
             formatted_prompt = self.prompt.format(**inputs)
             response = self.llm.invoke(formatted_prompt)
-            result = self.parser.parse(response.content)
-            
+            try:
+                result = self.parser.parse(response)
+            except Exception:
+                # 失败则追加 JSON 约束，再次调用
+                fix_prompt = (
+                    f"{formatted_prompt}\n\n"
+                    "请严格只输出**合法 JSON**：使用双引号、无注释、无多余文本/Markdown代码块；"
+                    "若无值用 null，不要省略字段。仅输出 JSON。"
+                )
+                response = self.llm.invoke(fix_prompt)
+                result = self.parser.parse(response.content)
             # 添加处理元数据
             result["processing_metadata"] = {
                 "workflow_completed": True,
@@ -803,7 +812,7 @@ def main():
     # 初始化分类器
     try:
         # 修改为你的实际路径
-        graph_db_path = "./legal_graph_db"
+        graph_db_path = "./dynamic_legal_graph_db"
         
         classifier = OptimizedLegalClassifier(graph_db_path=graph_db_path)
         print("✓ 分类器初始化成功\n")
