@@ -1,3 +1,4 @@
+
 import re
 import json
 import pickle
@@ -10,7 +11,6 @@ import networkx as nx
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.schema import Document
 from sklearn.metrics.pairwise import cosine_similarity
 import hashlib
 import requests
@@ -20,6 +20,8 @@ import getpass
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
 
 
 class JurisdictionLevel(Enum):
@@ -108,7 +110,7 @@ class QwenJurisdictionClassifier:
             api_url: Qwen API地址
             api_key: API密钥
         """
-        self.api_url = api_url or "http://localhost:8000/v1/chat/completions"
+        self.api_url = (api_url or os.getenv("DASHSCOPE_API_BASE"))
         self.model_name = "qwen-max"
         
         # 安全地获取API密钥
@@ -237,67 +239,24 @@ class QwenJurisdictionClassifier:
                 except json.JSONDecodeError as e:
                     print(f"JSON解析失败: {e}")
                     print(f"原始内容: {content}")
-                    return self._fallback_classification(document_content, file_path)
             else:
                 print(f"API调用失败: {response.status_code}")
-                return self._fallback_classification(document_content, file_path)
+    
                 
         except Exception as e:
             print(f"分类器调用异常: {e}")
-            return self._fallback_classification(document_content, file_path)
-    
-    def _fallback_classification(self, content: str, file_path: str) -> Dict[str, Any]:
-        """备用分类方法"""
-        content_lower = content.lower()
-        path_lower = file_path.lower()
         
-        # 简单的关键词匹配作为备用
-        if "terminology" in path_lower or "术语" in content_lower:
-            return {
-                "jurisdiction": "reference",
-                "document_type": "Terminology Table",
-                "confidence": 0.8,
-                "title": "Terminology Table"
-            }
-        elif "eu" in content_lower or "european" in content_lower:
-            return {
-                "jurisdiction": "eu",
-                "document_type": "EU Regulation",
-                "confidence": 0.6,
-                "title": "EU Document"
-            }
-        elif "california" in content_lower or "ca " in content_lower:
-            return {
-                "jurisdiction": "california",
-                "document_type": "State Law",
-                "confidence": 0.6,
-                "title": "California Law"
-            }
-        elif "utah" in content_lower:
-            return {
-                "jurisdiction": "utah",
-                "document_type": "State Law",
-                "confidence": 0.6,
-                "title": "Utah Law"
-            }
-        elif "florida" in content_lower:
-            return {
-                "jurisdiction": "florida",
-                "document_type": "State Law",
-                "confidence": 0.6,
-                "title": "Florida Law"
-            }
-        else:
-            return {
-                "jurisdiction": "usa",
-                "document_type": "Federal Code",
-                "confidence": 0.4,
-                "title": "Federal Document"
-            }
+        # 返回默认分类
+        return {
+            "jurisdiction": "usa",
+            "document_type": "Unknown",
+            "confidence": 0.1,
+            "title": Path(file_path).stem if file_path else "Unknown"
+        }
 
 
-class LegalGraphRAG:
-    """法律图谱RAG系统"""
+class SimplifiedLegalGraphRAG:
+    """简化的法律图谱RAG系统 - 仅使用Pickle和JSON格式"""
     
     def __init__(self, 
                  embedding_model_name: str = "BAAI/bge-base-en-v1.5",
@@ -325,6 +284,14 @@ class LegalGraphRAG:
         # 向量存储
         self.document_embeddings: Dict[str, np.ndarray] = {}
         
+        # 初始化RecursiveCharacterTextSplitter用于统一分块
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=self.max_chunk_size,
+            chunk_overlap=self.overlap_size,
+            length_function=len,
+            separators=["\n\n", "\n", ". ", "! ", "? ", "; ", ": ", " ", ""]
+        )
+        
         # 初始化基础管辖区结构
         self._initialize_base_jurisdictions()
     
@@ -342,7 +309,7 @@ class LegalGraphRAG:
                 print("未输入API密钥，将尝试使用免费方案")
         
         return api_key
-        
+    
     def _initialize_base_jurisdictions(self):
         """初始化基础管辖区结构"""
         base_jurisdictions = [
@@ -418,122 +385,18 @@ class LegalGraphRAG:
         print("文本清洗完成")
         return text.strip()
 
-    def create_smart_chunks(self, text: str, document_type: str) -> List[str]:
-        """根据文档类型创建智能分块"""
-        print(f"开始智能分块，文档类型: {document_type}")
+    def create_uniform_chunks(self, text: str) -> List[str]:
+        """使用统一的RecursiveCharacterTextSplitter进行分块"""
+        print("开始统一分块...")
         
-        if document_type == "Terminology Table":
-            return self._chunk_terminology_table(text)
-        elif document_type == "EU Regulation":
-            return self._chunk_by_articles(text)
-        elif document_type == "Federal Code":
-            return self._chunk_by_subsections(text)
-        elif document_type == "State Law":
-            return self._chunk_by_sections(text)
-        else:
-            return self._chunk_by_paragraphs(text)
-    
-    def _chunk_terminology_table(self, text: str) -> List[str]:
-        """术语表分块"""
-        chunks = []
-        # 按术语条目分割
-        entries = re.split(r'\n(?=[A-Z][A-Za-z]*:)', text)
+        # 使用RecursiveCharacterTextSplitter进行分块
+        chunks = self.text_splitter.split_text(text)
         
-        current_chunk = ""
-        for entry in entries:
-            entry = entry.strip()
-            if not entry:
-                continue
-            
-            if current_chunk and len(current_chunk + entry) > self.max_chunk_size:
-                chunks.append(current_chunk.strip())
-                current_chunk = ""
-            
-            current_chunk += entry + "\n\n"
+        # 过滤掉过短的chunks
+        valid_chunks = [chunk.strip() for chunk in chunks if len(chunk.strip()) > 50]
         
-        if current_chunk.strip():
-            chunks.append(current_chunk.strip())
-        
-        return chunks if chunks else [text[:self.max_chunk_size]]
-    
-    def _chunk_by_articles(self, text: str) -> List[str]:
-        """按Article分块（欧盟法规）"""
-        chunks = []
-        article_pattern = r'(Article\s+\d+[^\n]*(?:\n(?!Article\s+\d+)[^\n]*)*)'
-        articles = re.findall(article_pattern, text, re.MULTILINE | re.DOTALL)
-        
-        for article in articles:
-            if len(article) <= self.max_chunk_size:
-                chunks.append(article.strip())
-            else:
-                sub_chunks = self._split_long_text(article)
-                chunks.extend(sub_chunks)
-        
-        return chunks if chunks else self._split_long_text(text)
-    
-    def _chunk_by_subsections(self, text: str) -> List[str]:
-        """按子节分块（联邦法典）"""
-        chunks = []
-        subsection_pattern = r'\n\s*\([a-z]\)\s*'
-        parts = re.split(subsection_pattern, text)
-        
-        if len(parts) > 1:
-            current_chunk = parts[0]
-            for part in parts[1:]:
-                if len(current_chunk + part) <= self.max_chunk_size:
-                    current_chunk += "\n" + part
-                else:
-                    chunks.append(current_chunk.strip())
-                    current_chunk = part
-            
-            if current_chunk.strip():
-                chunks.append(current_chunk.strip())
-        else:
-            chunks = self._split_long_text(text)
-        
-        return chunks
-    
-    def _chunk_by_sections(self, text: str) -> List[str]:
-        """按Section分块（州法）"""
-        chunks = []
-        section_pattern = r'(Section\s+\d+\..*?)(?=Section\s+\d+\.|$)'
-        sections = re.findall(section_pattern, text, re.DOTALL | re.IGNORECASE)
-        
-        for section in sections:
-            if len(section) <= self.max_chunk_size:
-                chunks.append(section.strip())
-            else:
-                sub_chunks = self._split_long_text(section)
-                chunks.extend(sub_chunks)
-        
-        return chunks if chunks else self._split_long_text(text)
-    
-    def _chunk_by_paragraphs(self, text: str) -> List[str]:
-        """按段落分块（通用方法）"""
-        return self._split_long_text(text)
-    
-    def _split_long_text(self, text: str) -> List[str]:
-        """分割长文本"""
-        chunks = []
-        sentences = re.split(r'[.;]\s+(?=[A-Z]|\(\d+\)|\([a-z]\)|\d+\.)', text)
-        
-        current_chunk = ""
-        for sentence in sentences:
-            sentence = sentence.strip()
-            if not sentence or len(sentence) < 10:
-                continue
-            
-            if len(current_chunk + sentence) <= self.max_chunk_size:
-                current_chunk += sentence + ". "
-            else:
-                if current_chunk:
-                    chunks.append(current_chunk.strip())
-                current_chunk = sentence + ". "
-        
-        if current_chunk:
-            chunks.append(current_chunk.strip())
-        
-        return chunks
+        print(f"分块完成，生成 {len(valid_chunks)} 个有效块")
+        return valid_chunks
     
     def process_document(self, text_content: str, file_path: str) -> str:
         """
@@ -589,18 +452,20 @@ class LegalGraphRAG:
             }
         )
         
-        # 步骤5: 智能分块
-        print("开始智能分块...")
-        document.chunks = self.create_smart_chunks(cleaned_text, document_type)
+        # 步骤5: 统一分块
+        print("开始统一分块...")
+        document.chunks = self.create_uniform_chunks(cleaned_text)
         print(f"生成 {len(document.chunks)} 个文档块")
         
         # 步骤6: 向量化
         print("开始向量化...")
         if document.chunks:
             chunk_embeddings = []
+            
             for i, chunk in enumerate(document.chunks):
                 embedding = self.embedding_model.embed_query(chunk)
                 chunk_embeddings.append(embedding)
+                
                 if (i + 1) % 10 == 0:
                     print(f"已完成 {i + 1}/{len(document.chunks)} 个块的向量化")
             
@@ -685,7 +550,6 @@ class LegalGraphRAG:
             for related_id in related_ids:
                 self.graph.add_edge(doc.id, related_id, relationship="references")
     
-    # 保持原有的搜索、保存、加载等方法...
     def search(self, query: str, jurisdiction_id: Optional[str] = None, 
                top_k: int = 5) -> List[Tuple[str, float, Dict]]:
         """搜索相关法律文档"""
@@ -753,7 +617,7 @@ class LegalGraphRAG:
         return list(applicable_doc_ids)
     
     def save(self, base_path: str = "./legal_graph_db"):
-        """保存图谱数据"""
+        """保存图谱数据 - 仅使用JSON和Pickle格式"""
         base_path = Path(base_path)
         base_path.mkdir(exist_ok=True)
         
@@ -781,15 +645,34 @@ class LegalGraphRAG:
         with open(base_path / "graph_structure.json", 'w', encoding='utf-8') as f:
             json.dump(graph_data, f, ensure_ascii=False, indent=2)
         
-        # 保存向量嵌入
+        # 保存向量嵌入 - 使用Pickle
         with open(base_path / "embeddings.pkl", 'wb') as f:
             pickle.dump(self.document_embeddings, f)
         
+        # 保存配置信息
+        config_data = {
+            "embedding_model": "BAAI/bge-base-en-v1.5",
+            "max_chunk_size": self.max_chunk_size,
+            "overlap_size": self.overlap_size,
+            "version": "simplified_v1.0"
+        }
+        with open(base_path / "config.json", 'w', encoding='utf-8') as f:
+            json.dump(config_data, f, indent=2)
+        
         print(f"图谱数据已保存到: {base_path}")
+        print("存储格式: JSON (元数据) + Pickle (向量嵌入)")
     
     def load(self, base_path: str = "./legal_graph_db"):
         """加载图谱数据"""
         base_path = Path(base_path)
+        
+        # 加载配置
+        config_path = base_path / "config.json"
+        if config_path.exists():
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            self.max_chunk_size = config.get("max_chunk_size", 800)
+            self.overlap_size = config.get("overlap_size", 100)
         
         # 加载管辖区结构
         with open(base_path / "jurisdictions.json", 'r', encoding='utf-8') as f:
@@ -815,7 +698,7 @@ class LegalGraphRAG:
         self.documents = {}
         for doc_id, doc_data in documents_data.items():
             doc = LegalDocument(
-                id=doc_data['id'],
+                id=doc_id,
                 title=doc_data['title'],
                 content=doc_data['content'],
                 jurisdiction_id=doc_data['jurisdiction_id'],
@@ -855,6 +738,7 @@ class LegalGraphRAG:
         print(f"文档节点数: {len(self.documents)}")
         print(f"图中总节点数: {self.graph.number_of_nodes()}")
         print(f"图中总边数: {self.graph.number_of_edges()}")
+        print("存储格式: JSON (元数据) + Pickle (向量嵌入)")
         
         print("\n=== 法律体系结构 ===")
         # 显示各体系结构
@@ -911,16 +795,16 @@ class LegalGraphRAG:
             print(f"{doc_type}: {count} 个文档")
 
 
-def build_legal_graph_rag(knowledge_dir: str = "knowledge",
-                         qwen_api_url: str = None,
-                         qwen_api_key: str = None):
-    """构建法律图谱RAG系统的主函数"""
+def build_simplified_legal_graph_rag(knowledge_dir: str = "knowledge",
+                                    qwen_api_url: str = None,
+                                    qwen_api_key: str = None):
+    """构建简化版法律图谱RAG系统的主函数"""
     
-    print("=== 开始构建增强版法律图谱RAG系统 ===")
-    print("流程: 文本清洗 → 大模型分类 → 图节点构建 → 智能分块 → 向量化")
+    print("=== 开始构建简化版法律图谱RAG系统 ===")
+    print("流程: 文本清洗 → 大模型分类 → 图节点构建 → 统一分块 → 向量化 → JSON+Pickle存储")
     
     # 初始化图谱系统
-    graph_rag = LegalGraphRAG(
+    graph_rag = SimplifiedLegalGraphRAG(
         embedding_model_name="BAAI/bge-base-en-v1.5",
         max_chunk_size=800,
         overlap_size=100,
@@ -941,16 +825,17 @@ def build_legal_graph_rag(knowledge_dir: str = "knowledge",
     graph_rag.save("./legal_graph_db")
     
     print(f"\n=== 法律图谱RAG系统构建完成！处理了 {len(processed_docs)} 个文档 ===")
+    print("使用JSON + Pickle存储格式")
     
     return graph_rag
 
 
-def demo_enhanced_search():
-    """演示增强版搜索功能"""
-    print("\n=== 增强版法律图谱搜索演示 ===")
+def demo_simplified_search():
+    """演示简化版搜索功能"""
+    print("\n=== 简化版法律图谱搜索演示 ===")
     
     # 加载已保存的图谱
-    graph_rag = LegalGraphRAG()
+    graph_rag = SimplifiedLegalGraphRAG()
     try:
         graph_rag.load("./legal_graph_db")
     except FileNotFoundError:
@@ -998,7 +883,7 @@ def demo_enhanced_search():
             applicable_laws = graph_rag.get_applicable_laws(test['jurisdiction'])
             print(f"适用法律数量: {len(applicable_laws)}")
         
-        print(f"\n搜索结果:")
+        print("\n--- 搜索结果 ---")
         results = graph_rag.search(
             test['query'], 
             test['jurisdiction'],
@@ -1011,108 +896,54 @@ def demo_enhanced_search():
             
         for i, (chunk, score, metadata) in enumerate(results, 1):
             print(f"\n  [{i}] 相似度: {score:.4f}")
-            print(f"      文档: {metadata['document_title']}")
-            print(f"      类型: {metadata['document_type']}")
-            print(f"      管辖区: {metadata['jurisdiction']}")
+            print(f"      文档: {metadata.get('document_title', 'Unknown')}")
+            print(f"      类型: {metadata.get('document_type', 'Unknown')}")
+            print(f"      管辖区: {metadata.get('jurisdiction', 'Unknown')}")
             if 'classification_confidence' in metadata:
                 print(f"      分类置信度: {metadata['classification_confidence']:.2f}")
             print(f"      内容片段: {chunk[:200]}...")
 
 
 def main():
-    """主函数"""
-    import sys
-    import argparse
+    """主函数 - 直接构建Graph RAG知识库"""
     
-    if len(sys.argv) == 1:
-        # 没有参数时显示帮助信息
-        print("增强版法律图谱RAG系统")
-        print("使用方法:")
-        print("  python script.py build [--knowledge-dir DIR] [--api-url URL] [--api-key KEY]")
-        print("  python script.py search")  
-        print("  python script.py interactive")
-        print("\n环境变量:")
-        print("  DASHSCOPE_API_KEY - 千问API密钥")
-        print("\n注意: 如未设置API密钥，程序将提示输入或使用免费方案")
+    # 配置参数
+    knowledge_dir = "knowledge"  # 知识库目录
+    qwen_api_url = "http://localhost:8000/v1/chat/completions"  # 千问API地址
+    qwen_api_key = None  # API密钥，从环境变量获取
+    
+    print("=== Graph RAG 知识库构建工具 ===")
+    print(f"知识库目录: {knowledge_dir}")
+    print(f"API地址: {qwen_api_url}")
+    print("存储格式: JSON + Pickle")
+    
+    # 检查知识库目录是否存在
+    if not Path(knowledge_dir).exists():
+        print(f"错误: 知识库目录 '{knowledge_dir}' 不存在")
+        print(f"请创建目录并放入txt文档文件")
         return
     
-    parser = argparse.ArgumentParser(description='Enhanced Legal Graph RAG with Qwen')
-    parser.add_argument('command', choices=['build', 'search', 'interactive'],
-                       help='要执行的命令')
-    parser.add_argument('--knowledge-dir', default='knowledge', 
-                       help='知识库目录路径 (默认: knowledge)')
-    parser.add_argument('--api-url', 
-                       default='http://localhost:8000/v1/chat/completions',
-                       help='千问API地址 (默认: 本地免费方案)')
-    parser.add_argument('--api-key', 
-                       help='千问API密钥 (可选，也可通过环境变量设置)')
-    
+    # 构建Graph RAG知识库
     try:
-        args = parser.parse_args()
-    except SystemExit:
-        return
-    
-    if args.command == "build":
-        # 构建新的图谱
-        print(f"使用API地址: {args.api_url}")
-        if args.api_key:
-            print("使用命令行提供的API密钥")
-        elif os.getenv("DASHSCOPE_API_KEY"):
-            print("使用环境变量中的API密钥")
-        else:
-            print("将提示输入API密钥或使用免费方案")
-        
-        graph_rag = build_legal_graph_rag(
-            knowledge_dir=args.knowledge_dir,
-            qwen_api_url=args.api_url,
-            qwen_api_key=args.api_key
+        graph_rag = build_simplified_legal_graph_rag(
+            knowledge_dir=knowledge_dir,
+            qwen_api_url=qwen_api_url,
+            qwen_api_key=qwen_api_key
         )
         
-    elif args.command == "search":
-        # 演示搜索功能
-        demo_enhanced_search()
+        print("\n=== 知识库构建完成 ===")
+        print("文件保存位置: ./legal_graph_db/")
+        print("包含文件:")
+        print("  - jurisdictions.json (管辖区信息)")
+        print("  - documents.json (文档元数据)")  
+        print("  - graph_structure.json (图结构)")
+        print("  - embeddings.pkl (向量嵌入)")
+        print("  - config.json (配置信息)")
         
-    elif args.command == "interactive":
-        # 交互式搜索
-        graph_rag = LegalGraphRAG()
-        try:
-            graph_rag.load("./legal_graph_db")
-            
-            print("\n=== 交互式法律搜索系统 ===")
-            print("输入 'quit' 退出程序")
-            print("可用管辖区: usa, california, utah, florida, texas, eu, germany, france, italy, spain, netherlands, reference")
-            
-            while True:
-                print("\n" + "-" * 50)
-                try:
-                    query = input("请输入搜索查询: ").strip()
-                    if query.lower() in ['quit', 'exit', 'q']:
-                        break
-                    
-                    jurisdiction = input("限定管辖区 (留空表示全局搜索): ").strip()
-                    if not jurisdiction:
-                        jurisdiction = None
-                    
-                    results = graph_rag.search(query, jurisdiction, top_k=5)
-                    
-                    print(f"\n找到 {len(results)} 个相关结果:")
-                    for i, (chunk, score, metadata) in enumerate(results, 1):
-                        print(f"\n[{i}] {metadata['document_title']} (相似度: {score:.3f})")
-                        print(f"    管辖区: {metadata['jurisdiction']}")
-                        print(f"    类型: {metadata['document_type']}")
-                        print(f"    内容: {chunk[:300]}...")
-                        
-                except KeyboardInterrupt:
-                    print("\n\n程序被用户中断")
-                    break
-                except EOFError:
-                    print("\n\n程序结束")
-                    break
-                    
-        except FileNotFoundError:
-            print("未找到图谱数据，请先运行 'python script.py build' 构建图谱")
-        except Exception as e:
-            print(f"启动交互式搜索时出错: {e}")
+    except Exception as e:
+        print(f"构建过程中出现错误: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
