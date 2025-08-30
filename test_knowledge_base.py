@@ -144,7 +144,7 @@ def automated_feedback_workflow():
     test_cases = [
         {
             "name": "",
-            "description": "Requires age gates specific to Indonesia's Child Protection Law"
+            "description": "A video filter feature is available globally except KR"
         },
 
         {

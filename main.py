@@ -388,7 +388,8 @@ class GeographicJurisdictionDetector:
     
     def __init__(self, llm):
         self.llm = llm
-        self.allowlist = ["usa","california","utah","florida","texas","eu","germany","france","italy","spain","netherlands"]
+        node = json.load(open("dynamic_legal_graph_db/graph_structure.json"))["nodes"]
+        self.allowlist = [n for n in node if not re.search(r'\d', n)]
     
     def detect_jurisdictions(self, text: str) -> List[str]:
         """检测文本中涉及的管辖区"""

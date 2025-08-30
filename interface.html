@@ -12,10 +12,10 @@
         }
 
         :root {
-            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            --accent-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            --dark-gradient: linear-gradient(135deg, #2c3e50 0%, #4a569d 100%);
+            --primary-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            --secondary-gradient: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+            --accent-gradient: linear-gradient(135deg, #6ee7b7 0%, #34d399 100%);
+            --dark-gradient: linear-gradient(135deg, #065f46 0%, #047857 100%);
             --glass-bg: rgba(255, 255, 255, 0.25);
             --glass-border: rgba(255, 255, 255, 0.18);
         }
@@ -290,35 +290,43 @@
             flex-direction: column;
         }
 
-        .spinner-container {
-            position: relative;
+        .progress-container {
+            width: 100%;
+            max-width: 400px;
             margin-bottom: 20px;
         }
 
-        .spinner {
-            width: 60px;
-            height: 60px;
-            border: 4px solid rgba(255,255,255,0.2);
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1.2s linear infinite;
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
         }
 
-        .spinner::before {
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #34d399);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+
+        .progress-fill::after {
             content: '';
             position: absolute;
-            top: -4px;
-            left: -4px;
-            right: -4px;
-            bottom: -4px;
-            border: 2px solid rgba(102, 126, 234, 0.2);
-            border-radius: 50%;
-            animation: spin 2s linear infinite reverse;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: progressShimmer 2s infinite;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        @keyframes progressShimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
         }
 
         .loading-text {
@@ -842,10 +850,12 @@
             <button id="analyzeBtn" class="analyze-btn">Analyze Feature</button>
 
             <div id="loading" class="loading">
-                <div class="spinner-container">
-                    <div class="spinner"></div>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+                    </div>
                 </div>
-                <div class="loading-text">Processing with Graph RAG and Neural Networks...</div>
+                <div class="loading-text">Analyzing with Graph RAG and Neural Networks...</div>
             </div>
 
             <div id="resultsSection" class="results-section">
@@ -909,6 +919,8 @@
             constructor() {
                 this.currentAnalysis = null;
                 this.selectedClassification = null;
+                // 配置后端API地址 - 请修改为您的实际后端地址
+                this.API_BASE_URL = 'http://localhost:8000';
                 this.initializeEventListeners();
             }
 
@@ -947,30 +959,66 @@
                 this.showLoading();
                 
                 try {
-                    // Simulate API call to your backend
+                    // 调用您的后端API
                     const result = await this.callBackendAPI(featureText);
+                    console.log('后端返回的完整结果:', result);
                     this.currentAnalysis = result;
                     
-                    if (result.final_result.needs_human_review) {
+                    // 严格按照您的后端逻辑判断是否需要人工审核
+                    // 条件1: final_result.needs_human_review 为 true
+                    // 条件2: final_result.assessment 为 "UnspecifiedNeedsHuman"
+                    const needsHumanReview = result.final_result && (
+                        result.final_result.needs_human_review === true || 
+                        result.final_result.assessment === "UnspecifiedNeedsHuman"
+                    );
+                    
+                    console.log('人工审核判断:', {
+                        needs_human_review: result.final_result?.needs_human_review,
+                        assessment: result.final_result?.assessment,
+                        shouldTriggerReview: needsHumanReview
+                    });
+                    
+                    if (needsHumanReview) {
+                        console.log('触发人工审核界面');
                         this.showHumanReviewModal(result);
                     } else {
+                        console.log('直接显示分析结果');
                         this.displayResults(result);
                     }
                 } catch (error) {
                     this.hideLoading();
-                    this.showAlert('Error analyzing feature: ' + error.message, 'error');
+                    console.error('分析过程出错:', error);
+                    this.showAlert('分析出错: ' + error.message, 'error');
                 }
             }
 
             async callBackendAPI(featureText) {
-                // Simulate API call - replace with actual backend endpoint
-                return new Promise((resolve) => {
-                    setTimeout(() => {
-                        // Mock response based on your system's output structure
-                        const mockResponse = this.generateMockResponse(featureText);
-                        resolve(mockResponse);
-                    }, 2500);
-                });
+                // 调用您的后端API
+                try {
+                    console.log('正在调用后端API:', `${this.API_BASE_URL}/api/analyze`);
+                    
+                    const response = await fetch(`${this.API_BASE_URL}/api/analyze`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            feature_description: featureText
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`后端API调用失败: ${response.status} ${response.statusText}`);
+                    }
+
+                    const result = await response.json();
+                    console.log('后端返回结果:', result);
+                    return result;
+                    
+                } catch (error) {
+                    console.error('API调用出错:', error);
+                    throw error;
+                }
             }
 
             generateMockResponse(featureText) {
@@ -988,47 +1036,59 @@
                                   featureText.toLowerCase().includes('maybe') ||
                                   featureText.length < 50;
 
-                const confidence = isUncertain ? Math.random() * 0.4 + 0.1 : Math.random() * 0.3 + 0.7;
+                // 根据您的 confidence_threshold = 0.7 逻辑
+                const originalConfidence = isUncertain ? Math.random() * 0.4 + 0.1 : Math.random() * 0.3 + 0.7;
+                const needsReflection = originalConfidence < 0.7;
+                
+                // 如果需要反思，可能会被标记为需要人工审核
+                const finalConfidence = needsReflection ? Math.min(originalConfidence + 0.1, 0.65) : originalConfidence;
+                const needsHumanReview = finalConfidence < 0.7 || isUncertain;
 
-                if (isUncertain || confidence < 0.7) {
+                if (needsHumanReview) {
                     return {
                         feature_description: featureText,
                         original_classification: {
                             assessment: "UnspecifiedNeedsHuman",
-                            confidence: confidence,
+                            confidence: originalConfidence,
                             reasoning: "The system could not determine with sufficient confidence whether this is a legal requirement or business-driven decision. Multiple interpretations are possible based on the available evidence."
                         },
                         confidence_evaluation: {
                             threshold: 0.7,
-                            needs_reflection: true,
+                            needs_reflection: needsReflection,
+                            reflection_details: needsReflection ? {
+                                decision: "NEEDS_HUMAN_REVIEW",
+                                reasoning: "Insufficient evidence to make confident determination"
+                            } : null,
                             similar_cases: []
                         },
                         final_result: {
                             assessment: "UnspecifiedNeedsHuman",
-                            confidence: confidence,
+                            confidence: finalConfidence,
                             needs_human_review: true
                         }
                     };
                 }
 
+                // 高置信度的情况
                 const assessment = isLegal ? "LegalRequirement" : "BusinessDriven";
                 return {
                     feature_description: featureText,
                     original_classification: {
                         assessment: assessment,
-                        confidence: confidence,
+                        confidence: originalConfidence,
                         reasoning: isLegal ? 
-                            "This feature appears to be driven by legal or regulatory requirements based on the detected jurisdictions, legal terminology, and compliance obligations." :
-                            "This feature appears to be driven by business strategy, product decisions, or operational requirements rather than legal mandates. No specific legal requirements were identified."
+                            "This feature appears to be driven by legal or regulatory requirements based on the detected jurisdictions, legal terminology, and compliance obligations identified through Graph RAG analysis." :
+                            "This feature appears to be driven by business strategy, product decisions, or operational requirements rather than legal mandates. No specific legal requirements were identified in the knowledge base."
                     },
                     confidence_evaluation: {
                         threshold: 0.7,
                         needs_reflection: false,
+                        reflection_details: null,
                         similar_cases: []
                     },
                     final_result: {
                         assessment: assessment,
-                        confidence: confidence,
+                        confidence: originalConfidence,
                         needs_human_review: false
                     },
                     detected_jurisdictions: isLegal ? ['usa', 'california'] : [],
@@ -1039,7 +1099,7 @@
                         jurisdiction: "California",
                         relevance: 0.85,
                         passages: [{
-                            quote: "Businesses shall implement reasonable security procedures and practices...",
+                            quote: "Businesses shall implement reasonable security procedures and practices appropriate to the nature of the personal information...",
                             source_id: "ccpa_doc_001"
                         }]
                     }] : []
@@ -1050,11 +1110,41 @@
                 document.getElementById('analyzeBtn').disabled = true;
                 document.getElementById('loading').style.display = 'flex';
                 document.getElementById('resultsSection').style.display = 'none';
+                
+                // 进度条动画
+                const progressFill = document.getElementById('progressFill');
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += Math.random() * 15;
+                    if (progress > 90) {
+                        progress = 90;
+                        clearInterval(interval);
+                    }
+                    progressFill.style.width = progress + '%';
+                }, 300);
+                
+                // 存储interval以便清理
+                this.progressInterval = interval;
             }
 
             hideLoading() {
                 document.getElementById('analyzeBtn').disabled = false;
                 document.getElementById('loading').style.display = 'none';
+                
+                // 完成进度条
+                const progressFill = document.getElementById('progressFill');
+                progressFill.style.width = '100%';
+                
+                // 清理interval
+                if (this.progressInterval) {
+                    clearInterval(this.progressInterval);
+                    this.progressInterval = null;
+                }
+                
+                // 重置进度条
+                setTimeout(() => {
+                    progressFill.style.width = '0%';
+                }, 500);
             }
 
             displayResults(result) {
@@ -1083,8 +1173,21 @@
                 document.getElementById('confidenceScore').textContent = 
                     `Confidence: ${(confidence * 100).toFixed(1)}%`;
 
-                // Update reasoning
-                document.getElementById('reasoningText').textContent = reasoning;
+                // Update reasoning - 根据条件决定是否显示
+                const reasoningSection = document.querySelector('.reasoning-section');
+                const needsHumanReview = result.final_result && (
+                    result.final_result.needs_human_review === true || 
+                    result.final_result.assessment === "UnspecifiedNeedsHuman"
+                );
+                const hasReflection = result.confidence_evaluation && result.confidence_evaluation.needs_reflection;
+                
+                // 如果需要人工审核或深度分析，不显示推理原因
+                if (needsHumanReview || hasReflection) {
+                    reasoningSection.style.display = 'none';
+                } else {
+                    reasoningSection.style.display = 'block';
+                    document.getElementById('reasoningText').textContent = reasoning;
+                }
 
                 // Update details grid
                 this.updateDetailsGrid(result);
@@ -1139,16 +1242,23 @@
                     detailsGrid.appendChild(regulationsDiv);
                 }
 
-                // Processing metadata
+                // Processing metadata - 使用实际后端数据
                 const metadataDiv = document.createElement('div');
                 metadataDiv.className = 'detail-item';
+                
+                const processingMetadata = result.original_classification?.processing_metadata || 
+                                         result.processing_metadata || {};
+                const confidenceEval = result.confidence_evaluation || {};
+                
                 metadataDiv.innerHTML = `
                     <div class="detail-title">Processing Details</div>
                     <div class="detail-content">
-                        Data Source: Graph RAG + LLM Analysis<br>
-                        Confidence Threshold: ${result.confidence_evaluation.threshold}<br>
-                        Reflection Required: ${result.confidence_evaluation.needs_reflection ? 'Yes' : 'No'}<br>
-                        Processing Method: Neural Networks + Semantic Search
+                        Data Source: ${processingMetadata.data_source || 'Graph RAG + LLM'}<br>
+                        Search Method: ${processingMetadata.search_method || 'Neural Networks'}<br>
+                        Evidence Count: ${processingMetadata.legal_evidence_count || 0}<br>
+                        Confidence Threshold: ${confidenceEval.threshold || 0.7}<br>
+                        Reflection Required: ${confidenceEval.needs_reflection ? 'Yes' : 'No'}<br>
+                        Similar Cases Used: ${confidenceEval.similar_cases?.length || 0}
                     </div>
                 `;
                 detailsGrid.appendChild(metadataDiv);
@@ -1211,13 +1321,44 @@
             }
 
             async submitHumanFeedback(feedback) {
-                // Simulate API call to submit human feedback
-                return new Promise((resolve) => {
-                    setTimeout(() => {
-                        console.log('Human feedback submitted:', feedback);
-                        resolve();
-                    }, 1000);
-                });
+                // 提交人工反馈到后端
+                try {
+                    console.log('正在提交人工反馈...', feedback);
+                    
+                    const response = await fetch(`${this.API_BASE_URL}/api/feedback`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            feature_description: feedback.feature_description,
+                            original_assessment: feedback.original_assessment,
+                            human_assessment: feedback.human_assessment,
+                            notes: feedback.notes,
+                            reviewer: "Web Interface User",
+                            timestamp: new Date().toISOString()
+                        })
+                    });
+
+                    console.log('反馈API响应状态:', response.status);
+
+                    if (!response.ok) {
+                        throw new Error(`反馈提交失败: ${response.status} ${response.statusText}`);
+                    }
+
+                    const result = await response.json();
+                    console.log('反馈提交成功:', result);
+                    return result;
+                    
+                } catch (error) {
+                    console.error('反馈提交出错:', error);
+                    
+                    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                        throw new Error('无法连接到后端服务器进行反馈提交');
+                    }
+                    
+                    throw error;
+                }
             }
 
             closeModal() {
