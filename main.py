@@ -477,7 +477,7 @@ class OptimizedLegalClassifier:
 你是一位资深的法律合规分析师，具有Graph RAG法律知识图谱搜索能力。
 
 任务：将功能特性准确分类为以下三类之一：
-- "LegalRequirement"      (法律/法规/监管要求强制执行)
+- "LegalRequirement"      (法律/法规/监管要求执行)
 - "BusinessDriven"        (产品策略/实验/安全选择；非法律强制要求)
 - "UnspecifiedNeedsHuman" (意图不明确或证据缺失/冲突)
 
@@ -505,10 +505,7 @@ BusinessDriven (得分 0-1)：
 +0.30 检测到管辖区但缺乏法律证据支持
 +0.20 地理差异主要用于产品推出策略
 
-UnspecifiedNeedsHuman (得分 0-1)：
-+0.50 管辖区检测但法律证据不足或冲突
-+0.30 功能意图不明确，存在混合信号
-+0.20 地区限制无明确法律或商业理由
+UnspecifiedNeedsHuman: 如果LegalRequiremen或BusinessDriven的得分低于0.8，归为此类。此类的得分为1-LegalRequirement得分或1- BusinessDriven得分。
 
 输出要求：
 {{
@@ -828,8 +825,8 @@ def main():
     # 测试数据
     test_features = [
         {
-            'name': 'Curfew login blocker with ASL and GH for Utah minors',
-            'description': 'To comply with the Utah Social Media Regulation Act, we are implementing a curfew-based login restriction for users under 18. The system uses ASL to detect minor accounts and routes enforcement through GH to apply only within Utah boundaries. The feature activates during restricted night hours and logs activity using EchoTrace for auditability. This allows parental control to be enacted without user-facing alerts, operating in ShadowMode during initial rollout.'
+            "name": "",
+            "description": "A video filter feature is available globally except KR"
         }
     ]
     
