@@ -478,6 +478,19 @@ class DynamicLegalGraphRAG:
         print(f"  - 类型: {classification.get('document_type')}")
         print(f"  - 置信度: {classification.get('confidence', 0):.2f}")
         
+        jurisdiction_code = classification.get('jurisdiction_code')
+        document_type = classification.get('document_type', '').lower()
+        
+        # 对于术语表等参考文档，如果管辖区为空或无效，自动归类到reference
+        if (not jurisdiction_code or jurisdiction_code == "None" or 
+            'terminology' in document_type or 'reference' in document_type or
+            classification.get('jurisdiction_level') == 'reference'):
+            print("检测到参考文档/术语表，自动归类到reference管辖区")
+            classification['jurisdiction_code'] = 'reference'
+            classification['jurisdiction_name'] = 'Reference Documents'
+            classification['jurisdiction_level'] = 'reference'
+            classification['parent_jurisdiction'] = None
+
         # 步骤3: 确保管辖区节点存在（动态创建）
         jurisdiction_id = self.ensure_jurisdiction_exists(classification)
         
