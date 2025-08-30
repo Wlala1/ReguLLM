@@ -1,13 +1,13 @@
 # ReguLLM — Regulatory Knowledge Vector Search
 
-Build a local vector database from regulation/legislation text files and run semantic search over them. ReguLLM uses Google Generative AI for text embeddings and pickle for vector storage. 
+Build a local vector database from regulation/legislation text files and run semantic search over them. ReguLLM uses BGE model for text embeddings, Qwen-max-latest model for infering pickle for vector storage. 
 
 -----
 
 ## ✨ Features
 
   * **Document ingestion & chunking**: Automatically loads and segments files under `knowledge/`.
-  * **Embeddings**: Generates text vectors via Qwen Generative AI (API key required).
+  * **Embeddings**: Generates text vectors via BGE model (API key is not required).
   * **Semantic search**: Natural-language queries return the most relevant passages.
 
 
@@ -16,7 +16,7 @@ Build a local vector database from regulation/legislation text files and run sem
 ## 📋 Requirements
 
   * Python 3.8+ (3.10/3.11 recommended)
-  * Internet connection (needed when building embeddings)
+  * Internet connection (needed when building embeddings and infering)
 
 -----
 
@@ -46,7 +46,7 @@ Build a local vector database from regulation/legislation text files and run sem
 
 ## 🔧 Setup
 
-### 1\) Get a Google AI API key
+### 1\) Get a Qwen AI API key
 
 Create a key in Qwen, then set it as an environment variable:
 
@@ -58,7 +58,7 @@ export DASHSCOPE_API_KEY="your_api_key_here"
 
 ### 2\) Prepare your regulation texts
 
-Place your `.txt` files into the `knowledge/` folder. For example:
+Place your `.txt` legal files into the `knowledge/` folder. For example:
 
 ```
 knowledge/
@@ -77,7 +77,7 @@ Files encoded as UTF-8 / GBK / GB2312 are supported.
 
 ### Step 1 — Build the knowledge base
 
-Reads files from `knowledge/`, creates embeddings, builds the (graph) index, and saves .pkl artifacts to `graph_store/` (configurable).
+Reads files from `knowledge/`, creates embeddings, builds the (graph) index, and saves .pkl artifacts to './legal_graph_db' (configurable).
 
 ```bash
 python build_knowledge_base.py
@@ -97,29 +97,26 @@ python app.py
 
 ```
 .
-├── trans_embedding.py         # Main script to build/query the vector store
-├── test_knowledge_base.py     # Test script & interactive demo
-├── config.py                  # Configuration settings
+├── build_knowledge_base.py         # Main script to build/query the vector store
+├── main.py                     # Main infer module
+├── app.py                     # Base API for frontend and backend connection
 ├── requirements.txt           # Python dependencies
 ├── README.md                  # This file
-├── knowledge/                 # Place your .txt files here
-└── vector_db/                 # Created automatically to store vectors
-```
+├── confidence_agent.py        # Self check module
+└── interface.html             # Frontend
 
 **Additional files** (for experiments/extensions):
 
-  * `app.py`
-  * `main.py`
-  * `build_knowledge_base.py`
+  * `config.py`
+  * `test_knowledge_base.py `
+  * `trans_embedding.py`
   * `confidence_agent.py`
-  * `interface.html`
 
-*The top-level repo also includes directories like `legal_compliance_db1/`. See the GitHub file list for the current state.*
+
+*The top-level repo also includes directories like `legal_graph_db/`. See the GitHub file list for the current state.*
 
 -----
 
 ## ⚖️ License
 
 For learning and research purposes only. **Do not commit your API keys to version control.**
-
-我这里用的是pikle 存储graphRAG， 改一下
