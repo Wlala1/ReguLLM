@@ -5,12 +5,14 @@ from confidence_agent import ConfidenceAgent
 import logging
 
 app = Flask(__name__)
-CORS(app)  # 允许前端跨域访问
+CORS(app)
 
-# 初始化您的系统组件
+# Initialize legal classifier with graph database path
 legal_classifier = OptimizedLegalClassifier(
-    graph_db_path="./dynamic_legal_graph_db"  # 修改为您的实际路径
+    graph_db_path="./dynamic_legal_graph_db"
 )
+
+# Initialize confidence agent with threshold and feedback learning
 confidence_agent = ConfidenceAgent(
     confidence_threshold=0.7,
     legal_classifier=legal_classifier,
@@ -24,43 +26,43 @@ def analyze_feature():
         feature_description = data.get('feature_description')
         
         if not feature_description:
-            return jsonify({'error': '请提供功能描述'}), 400
+            return jsonify({'error': 'Please provide a feature description'}), 400
         
-        # 调用您的分析系统
+        # Process the feature through confidence agent
         result = confidence_agent.process_feature(feature_description)
         
         return jsonify(result)
     
     except Exception as e:
-        logging.error(f"分析过程出错: {str(e)}")
-        return jsonify({'error': f'分析失败: {str(e)}'}), 500
+        logging.error(f"Error during analysis: {str(e)}")
+        return jsonify({'error': f'Analysis failed: {str(e)}'}), 500
 
 @app.route('/api/feedback', methods=['POST'])
 def submit_feedback():
     try:
         data = request.json
         
-        # 提交人工反馈
+        # Submit human feedback
         feedback_result = confidence_agent.add_human_feedback(
             feature_description=data.get('feature_description'),
             original_assessment=data.get('original_assessment'),
             human_assessment=data.get('human_assessment'),
             metadata={
                 'notes': data.get('notes', ''),
-                'reviewer': data.get('reviewer', 'Web用户'),
+                'reviewer': data.get('reviewer', 'Web User'),
                 'timestamp': data.get('timestamp')
             }
         )
         
         return jsonify({
             'status': 'success',
-            'message': '人工反馈已成功提交',
+            'message': 'Human feedback successfully submitted',
             'feedback_id': feedback_result.get('id') if feedback_result else None
         })
     
     except Exception as e:
-        logging.error(f"反馈提交出错: {str(e)}")
-        return jsonify({'error': f'反馈提交失败: {str(e)}'}), 500
+        logging.error(f"Error submitting feedback: {str(e)}")
+        return jsonify({'error': f'Feedback submission failed: {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8000)

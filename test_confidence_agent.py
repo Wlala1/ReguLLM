@@ -4,61 +4,61 @@ from confidence_agent import ConfidenceAgent
 from main import OptimizedLegalClassifier
 
 def test_confidence_agent(use_feedback_learning=False):
-    """测试置信度评估Agent的功能
+    """Test the functionality of the confidence assessment agent
     """
-    print("=== 置信度评估Agent - 测试脚本 ===\n")
+    print("=== Confidence Assessment Agent - Test Script ===\n")
     
-    # 设置向量数据库路径
+    # Set vector database path
     vector_db_path = os.path.join(os.getcwd(), "dynamic_legal_graph_db")
     knowledge_base_path = os.path.join(os.getcwd(), "feedback_knowledge_base.pkl")
-    print(f"向量数据库路径: {vector_db_path}")
+    print(f"Vector database path: {vector_db_path}")
     
-    # 初始化法律分类器和置信度评估Agent
+    # Initialize legal classifier and confidence assessment agent
     try:
-        print("初始化法律分类器...")
+        print("Initializing legal classifier...")
         legal_classifier = OptimizedLegalClassifier(
             graph_db_path=vector_db_path
         )
         
-        print("\n初始化置信度评估Agent...")
+        print("\nInitializing confidence assessment agent...")
         confidence_agent = ConfidenceAgent(
-            confidence_threshold=0.7,  # 设置置信度阈值
+            confidence_threshold=0.7,  # Set confidence threshold
             legal_classifier=legal_classifier,
             knowledge_base_path=knowledge_base_path,
             use_feedback_learning=use_feedback_learning
         )
-        print("✓ 初始化成功\n")
+        print("✓ Initialization successful\n")
     except Exception as e:
-        print(f"✗ 初始化失败: {e}")
+        print(f"✗ Initialization failed: {e}")
         return
     
-    # 测试数据 - 包含不同置信度级别的案例
+    # Test data - cases with different confidence levels
     test_cases = [
-        # 案例1: 可能高置信度的案例 - 明确的法律要求
+        # Case 1: Potentially high-confidence case - clear legal requirement
         {
             "name": "Curfew login blocker with ASL and GH for Utah minors",
             "description": "To comply with the Utah Social Media Regulation Act, we are implementing a curfew-based login restriction for users under 18. The system uses ASL to detect minor accounts and routes enforcement through GH to apply only within Utah boundaries."
         },
         
-        # 案例2: 可能中等置信度的案例 - 部分法律依据
+        # Case 2: Potentially medium-confidence case - partial legal basis
         {
             "name": "PF default toggle with NR enforcement for California teens",
             "description": "As part of compliance with California's SB976, the app will disable PF by default for users under 18 located in California. This default setting is considered NR to override, unless explicit parental opt-in is provided. Geo-detection is handled via GH, and rollout is monitored with FR logs. The design ensures minimal disruption while meeting the strict personalization requirements imposed by the law."
         },
         
-        # 案例3: 可能低置信度的案例 - 缺乏明确法律依据
+        # Case 3: Potentially low-confidence case - lacking clear legal basis
         {
             "name": "Child abuse content scanner using T5 and CDS triggers",
             "description": "In line with the US federal law requiring providers to report child sexual abuse content to NCMEC, this feature scans uploads and flags suspected materials tagged as T5. Once flagged, the CDS auto-generates reports and routes them via secure channel APIs. The logic runs in real-time, supports human validation, and logs detection metadata for internal audits. Regional thresholds are governed by LCP parameters in the backend."
         },
         
-        # 案例4: 可能混合信号的案例 - 法律和商业因素混合
+        # Case 4: Potentially mixed signal case - legal and business factors combined
         {
             "name": "Feature reads user location to enforce France's copyright rules",
             "description": ""
         },
         
-        # 案例5: 可能需要人工干预的案例 - 信息不足
+        # Case 5: Potentially requiring human intervention - insufficient information
         {
             "name": "",
             "description": "Requires age gates specific to Indonesia's Child Protection Law"
@@ -75,51 +75,51 @@ def test_confidence_agent(use_feedback_learning=False):
         }
     ]
     
-    # 处理测试案例
+    # Process test cases
     results = []
     for i, case in enumerate(test_cases):
-        print(f"\n测试案例 {i+1}/{len(test_cases)}: {case['name']}")
-        print(f"描述: {case['description'][:100]}...")
+        print(f"\nTest Case {i+1}/{len(test_cases)}: {case['name']}")
+        print(f"Description: {case['description'][:100]}...")
         
-        # 执行完整处理流程
+        # Execute complete processing workflow
         try:
             result = confidence_agent.process_feature(case['description'])
             
-            # 添加案例名称
+            # Add case name
             result['case_name'] = case['name']
             
-            # 保存结果
+            # Save result
             results.append(result)
             
-            # 显示关键结果
-            print(f"\n结果摘要:")
-            print(f"  原始分类: {result['original_classification']['assessment']}")
-            print(f"  原始置信度: {result['original_classification']['confidence']}")
-            print(f"  是否需要反思: {result['confidence_evaluation']['needs_reflection']}")
-            print(f"  最终分类: {result['final_result']['assessment']}")
-            print(f"  最终置信度: {result['final_result']['confidence']}")
-            print(f"  是否需要人工审核: {result['final_result']['needs_human_review']}")
+            # Display key results
+            print(f"\nResult Summary:")
+            print(f"  Original classification: {result['original_classification']['assessment']}")
+            print(f"  Original confidence: {result['original_classification']['confidence']}")
+            print(f"  Needs reflection: {result['confidence_evaluation']['needs_reflection']}")
+            print(f"  Final classification: {result['final_result']['assessment']}")
+            print(f"  Final confidence: {result['final_result']['confidence']}")
+            print(f"  Needs human review: {result['final_result']['needs_human_review']}")
             
             if result['confidence_evaluation']['needs_reflection'] and result['confidence_evaluation']['reflection_details']:
                 reflection = result['confidence_evaluation']['reflection_details']
-                print(f"\n反思分析:")
-                print(f"  决策: {reflection.get('decision', 'N/A')}")
-                print(f"  证据分析: {reflection.get('reflection', {}).get('evidence_analysis', 'N/A')[:100]}...")
-                print(f"  逻辑分析: {reflection.get('reflection', {}).get('logic_analysis', 'N/A')[:100]}...")
-                print(f"  不确定性来源: {reflection.get('reflection', {}).get('uncertainty_source', 'N/A')[:100]}...")
+                print(f"\nReflection Analysis:")
+                print(f"  Decision: {reflection.get('decision', 'N/A')}")
+                print(f"  Evidence analysis: {reflection.get('reflection', {}).get('evidence_analysis', 'N/A')[:100]}...")
+                print(f"  Logic analysis: {reflection.get('reflection', {}).get('logic_analysis', 'N/A')[:100]}...")
+                print(f"  Uncertainty source: {reflection.get('reflection', {}).get('uncertainty_source', 'N/A')[:100]}...")
                 
-                # 显示相似案例信息
+                # Display similar case information
                 similar_cases = result['confidence_evaluation'].get('similar_cases', [])
                 if similar_cases:
-                    print(f"\n参考的相似案例:")
+                    print(f"\nReferenced similar cases:")
                     for i, case in enumerate(similar_cases):
-                        print(f"  案例 #{i+1}: {case['id']}")
-                        print(f"    原始分类: {case['original_assessment']}")
-                        print(f"    人工修正: {case['human_assessment']}")
-                        print(f"    相似度: {case['similarity']:.2f}")
+                        print(f"  Case #{i+1}: {case['id']}")
+                        print(f"    Original assessment: {case['original_assessment']}")
+                        print(f"    Human correction: {case['human_assessment']}")
+                        print(f"    Similarity: {case['similarity']:.2f}")
             
         except Exception as e:
-            print(f"✗ 处理失败: {e}")
+            print(f"✗ Processing failed: {e}")
             results.append({
                 "case_name": case['name'],
                 "error": str(e),
@@ -128,75 +128,75 @@ def test_confidence_agent(use_feedback_learning=False):
         
         print(f"{('='*80)}")
     
-    # 保存结果到JSON文件
+    # Save results to JSON file
     try:
         output_file = 'test_confidence_results.json'
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(results, f, indent=4, ensure_ascii=False, default=str)
-        print(f"\n✓ 结果已保存到 {output_file}")
-        print(f"✓ 共处理 {len(results)} 个测试案例")
+        print(f"\n✓ Results saved to {output_file}")
+        print(f"✓ Processed {len(results)} test cases")
         
-        # 统计结果
+        # Statistics
         needs_human_count = sum(1 for r in results if r.get('final_result', {}).get('needs_human_review', False))
         reflection_count = sum(1 for r in results if r.get('confidence_evaluation', {}).get('needs_reflection', False))
         
-        print(f"\n统计信息:")
-        print(f"  需要反思的案例数: {reflection_count}/{len(results)}")
-        print(f"  需要人工审核的案例数: {needs_human_count}/{len(results)}")
+        print(f"\nStatistics:")
+        print(f"  Cases requiring reflection: {reflection_count}/{len(results)}")
+        print(f"  Cases requiring human review: {needs_human_count}/{len(results)}")
         
     except Exception as e:
-        print(f"\n✗ 保存结果失败: {e}")
+        print(f"\n✗ Failed to save results: {e}")
 
 
 def test_human_feedback():
-    """测试人工反馈功能"""
+    """Test human feedback functionality"""
     print(f"\n{'='*100}")
-    print(f"测试人工反馈功能")
+    print(f"Testing Human Feedback Functionality")
     print(f"{'='*100}")
     
     try:
-        # 初始化带有反馈学习功能的Agent
+        # Initialize agent with feedback learning enabled
         vector_db_path = os.path.join(os.getcwd(), "dynamic_legal_graph_db")
         knowledge_base_path = os.path.join(os.getcwd(), "feedback_knowledge_base.pkl")
         
-        print(f"向量数据库路径: {vector_db_path}")
-        print(f"反馈知识库路径: {knowledge_base_path}")
+        print(f"Vector database path: {vector_db_path}")
+        print(f"Feedback knowledge base path: {knowledge_base_path}")
         
-        # 初始化法律分类器
-        print("\n初始化法律分类器...")
+        # Initialize legal classifier
+        print("\nInitializing legal classifier...")
         legal_classifier = OptimizedLegalClassifier(
             graph_db_path=vector_db_path
         )
-        print("✓ 法律分类器初始化成功")
+        print("✓ Legal classifier initialization successful")
         
-        # 初始化置信度评估Agent（启用反馈学习）
-        print("\n初始化置信度评估Agent（启用反馈学习）...")
+        # Initialize confidence assessment agent (with feedback learning enabled)
+        print("\nInitializing confidence assessment agent (with feedback learning enabled)...")
         confidence_agent = ConfidenceAgent(
             confidence_threshold=0.7,
             legal_classifier=legal_classifier,
             knowledge_base_path=knowledge_base_path,
             use_feedback_learning=True
         )
-        print("✓ 置信度评估Agent初始化成功\n")
+        print("✓ Confidence assessment agent initialization successful\n")
         
-        # 测试案例
-        feature_description = "我们需要添加一个功能，允许用户下载自己的所有数据，包括个人信息和使用记录。这是为了遵守数据可携权的要求。"
+        # Test case
+        feature_description = "We need to add a feature that allows users to download all their data, including personal information and usage records. This is to comply with data portability rights requirements."
         
-        # 第一步：处理功能并获取初始结果
-        print("\n第一步：处理功能并获取初始结果...")
+        # Step 1: Process feature and get initial results
+        print("\nStep 1: Processing feature and getting initial results...")
         result = confidence_agent.process_feature(feature_description)
         
         original_assessment = result['final_result']['assessment']
         needs_human_review = result['final_result']['needs_human_review']
         
-        # 第二步：模拟人工审核并添加反馈
-        print("\n第二步：模拟人工审核并添加反馈...")
+        # Step 2: Simulate human review and add feedback
+        print("\nStep 2: Simulating human review and adding feedback...")
         if needs_human_review:
-            print("需要人工审核，进行人工标注...")
-            # 模拟人工审核结果
-            human_assessment = "法律要求"  # 假设人工审核确定这是法律要求
+            print("Human review required, proceeding with human annotation...")
+            # Simulate human review results
+            human_assessment = "Legal requirement"  # Assume human review determines this is a legal requirement
             
-            # 添加人工反馈到知识库
+            # Add human feedback to knowledge base
             feedback_case = confidence_agent.add_human_feedback(
                 feature_description=feature_description,
                 original_assessment=original_assessment,
@@ -208,26 +208,26 @@ def test_human_feedback():
                 }
             )
             
-            print(f"\n反馈案例已添加: {feedback_case['id']}")
+            print(f"\nFeedback case added: {feedback_case['id']}")
         else:
-            print("不需要人工审核，跳过反馈添加")
+            print("Human review not required, skipping feedback addition")
         
-        # 第三步：测试相似案例的影响
-        print("\n第三步：测试相似案例的影响...")
-        similar_feature = "我们需要实现一个功能，让用户能够导出自己的所有数据，这是GDPR中数据可携权的要求。"
+        # Step 3: Test impact of similar cases
+        print("\nStep 3: Testing impact of similar cases...")
+        similar_feature = "We need to implement a feature that allows users to export all their data, as required by GDPR data portability rights."
         
-        print("\n处理相似功能描述...")
+        print("\nProcessing similar feature description...")
         result_with_feedback = confidence_agent.process_feature(similar_feature)
         
-        # 检查是否使用了相似案例
+        # Check if similar cases were used
         similar_cases = result_with_feedback['confidence_evaluation'].get('similar_cases', [])
         if similar_cases:
-            print(f"\n成功！系统使用了 {len(similar_cases)} 个相似反馈案例进行决策")
+            print(f"\nSuccess! The system used {len(similar_cases)} similar feedback cases for decision-making")
         else:
-            print("\n注意：系统未使用任何相似反馈案例")
+            print("\nNote: The system did not use any similar feedback cases")
             
     except Exception as e:
-        print(f"错误: {str(e)}")
+        print(f"Error: {str(e)}")
         import traceback
         traceback.print_exc()
 
@@ -235,5 +235,5 @@ def test_human_feedback():
 if __name__ == "__main__":
     test_confidence_agent(use_feedback_learning=True)
     
-    # 测试人工反馈功能
+    # Test human feedback functionality
     test_human_feedback()

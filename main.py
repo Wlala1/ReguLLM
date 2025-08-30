@@ -12,12 +12,12 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import pickle
 
-# 加载环境变量
+# Load environment variables
 load_dotenv()
 
 
 class JargonTranslator:
-    """黑话翻译器 - 从Graph RAG知识库中加载术语表"""
+    """Jargon Translator - Load terminology from Graph RAG knowledge base"""
     
     def __init__(self, graph_db_path: str = None):
         self.graph_db_path = graph_db_path
@@ -26,42 +26,42 @@ class JargonTranslator:
             self._load_jargon_from_graph_db()
     
     def _load_jargon_from_graph_db(self):
-        """从Graph RAG的JSON文件加载术语表"""
+        """Load terminology from Graph RAG JSON files"""
         try:
-            print("从Graph RAG数据库加载术语表...")
+            print("Loading terminology from Graph RAG database...")
             
-            # 加载documents.json
+            # Load documents.json
             documents_path = Path(self.graph_db_path) / "documents.json"
             if not documents_path.exists():
-                print(f"警告: 文档文件不存在: {documents_path}")
+                print(f"Warning: Document file not found: {documents_path}")
                 return
             
             with open(documents_path, 'r', encoding='utf-8') as f:
                 documents_data = json.load(f)
             
-            print(f"找到 {len(documents_data)} 个文档，开始搜索术语表...")
+            print(f"Found {len(documents_data)} documents, searching for terminology...")
             
-            # 查找术语表文档
+            # Search for terminology documents
             terminology_found = False
             for doc_id, doc_data in documents_data.items():
                 content = doc_data.get("content", "")
                 doc_type = doc_data.get("document_type", "")
                 title = doc_data.get("title", "")
                 
-                # 检查是否是术语表
+                # Check if it's a terminology table
                 if (doc_type == "Terminology Table" or 
                     "terminology" in title.lower() or
-                    "术语" in content or
+                    "术语" in content or  # Chinese term detection
                     self._looks_like_terminology(content)):
                     
-                    print(f"找到术语表文档: {title}")
-                    print(f"内容预览: {content[:200]}...")
+                    print(f"Found terminology document: {title}")
+                    print(f"Content preview: {content[:200]}...")
                     
-                    # 提取术语
+                    # Extract terms
                     extracted_jargon = self._extract_jargon_comprehensive(content)
                     
                     if extracted_jargon:
-                        print(f"成功提取 {len(extracted_jargon)} 个术语:")
+                        print(f"Successfully extracted {len(extracted_jargon)} terms:")
                         for jargon, definition in extracted_jargon.items():
                             self.jargon_dict[jargon] = definition
                             print(f"  {jargon}: {definition}")
@@ -69,38 +69,38 @@ class JargonTranslator:
                         break
             
             if not terminology_found:
-                print("警告: 未找到术语表，使用默认术语")
+                print("Warning: No terminology found, using default terms")
                 
             else:
-                print(f"术语表加载完成，共 {len(self.jargon_dict)} 个术语")
+                print(f"Terminology loading complete, total {len(self.jargon_dict)} terms")
                         
         except Exception as e:
-            print(f"术语表加载失败: {e}")
+            print(f"Terminology loading failed: {e}")
             
     
     def _looks_like_terminology(self, content: str) -> bool:
-        """判断内容是否看起来像术语表"""
-        # 检查是否有多个大写缩写和冒号定义的模式
+        """Determine if content looks like terminology"""
+        # Check for multiple uppercase abbreviations with colon definitions
         abbreviation_pattern = r'\b[A-Z]{2,}\s*[:-]'
         matches = re.findall(abbreviation_pattern, content)
-        return len(matches) >= 3  # 至少有3个缩写定义
+        return len(matches) >= 3  # At least 3 abbreviation definitions
     
     
     def _extract_jargon_comprehensive(self, content: str) -> Dict[str, str]:
-        """综合提取黑话术语"""
+        """Comprehensive jargon term extraction"""
         jargon_dict = {}
         
-        # 多种匹配模式
+        # Multiple matching patterns
         patterns = [
-            # 标准格式: ASL: Age-sensitive logic
+            # Standard format: ASL: Age-sensitive logic
             r'([A-Z]{2,}|[A-Z][a-z]+(?:[A-Z][a-z]*)*)\s*[:-]\s*([^\n\r]+)',
-            # 括号格式: ASL (Age-sensitive logic)
+            # Parenthetical format: ASL (Age-sensitive logic)
             r'([A-Z]{2,})\s*\(([^)]+)\)',
-            # 释义格式: ASL means Age-sensitive logic  
+            # Definition format: ASL means Age-sensitive logic  
             r'([A-Z]{2,})\s+(?:means?|is|stands for|refers to)\s+([^\n\r\.]+)',
-            # 带引号: "ASL": Age-sensitive logic
+            # Quoted format: "ASL": Age-sensitive logic
             r'["\']([A-Z]{2,})["\']?\s*[:-]\s*([^\n\r]+)',
-            # 连字符: ASL - Age-sensitive logic
+            # Hyphen format: ASL - Age-sensitive logic
             r'([A-Z]{2,})\s*[-–—]\s*([^\n\r]+)'
         ]
         
@@ -110,24 +110,24 @@ class JargonTranslator:
                 jargon = jargon.strip()
                 definition = definition.strip().rstrip('.,;:|')
                 
-                # 质量过滤
+                # Quality filtering
                 if (len(jargon) >= 2 and len(definition) > 5 and 
                     len(definition) < 200 and
                     not definition.isupper() and
-                    jargon.isupper()):  # 确保术语是大写
+                    jargon.isupper()):  # Ensure term is uppercase
                     jargon_dict[jargon] = definition
         
         return jargon_dict
     
     def translate_jargon(self, text: str) -> Tuple[str, List[str]]:
-        """翻译文本中的黑话"""
+        """Translate jargon in text"""
         if not self.jargon_dict:
             return text, []
             
         translated_text = text
         found_jargons = []
         
-        # 按长度排序，避免部分匹配问题
+        # Sort by length to avoid partial matching issues
         sorted_jargon = sorted(self.jargon_dict.items(), key=lambda x: len(x[0]), reverse=True)
         
         for jargon, definition in sorted_jargon:
@@ -141,7 +141,7 @@ class JargonTranslator:
 
 
 class OptimizedGraphRAGRetriever:
-    """优化的Graph RAG检索器"""
+    """Optimized Graph RAG Retriever"""
     
     def __init__(self, graph_db_path: str):
         self.graph_db_path = Path(graph_db_path)
@@ -152,68 +152,68 @@ class OptimizedGraphRAGRetriever:
         self._load_graph_data()
     
     def _load_graph_data(self):
-        """加载Graph RAG数据"""
+        """Load Graph RAG data"""
         try:
-            print(f"加载Graph RAG数据从: {self.graph_db_path}")
+            print(f"Loading Graph RAG data from: {self.graph_db_path}")
             
-            # 加载文档数据
+            # Load document data
             documents_path = self.graph_db_path / "documents.json"
             if documents_path.exists():
                 with open(documents_path, 'r', encoding='utf-8') as f:
                     documents_data = json.load(f)
                 self.documents = documents_data
-                print(f"✓ 加载了 {len(documents_data)} 个文档")
+                print(f"✓ Loaded {len(documents_data)} documents")
             else:
-                raise FileNotFoundError(f"文档文件不存在: {documents_path}")
+                raise FileNotFoundError(f"Document file not found: {documents_path}")
             
-            # 加载管辖区数据
+            # Load jurisdiction data
             jurisdictions_path = self.graph_db_path / "jurisdictions.json"  
             if jurisdictions_path.exists():
                 with open(jurisdictions_path, 'r', encoding='utf-8') as f:
                     self.jurisdictions = json.load(f)
-                print(f"✓ 加载了 {len(self.jurisdictions)} 个管辖区")
+                print(f"✓ Loaded {len(self.jurisdictions)} jurisdictions")
             
-            # 加载向量嵌入
+            # Load vector embeddings
             embeddings_path = self.graph_db_path / "embeddings.pkl"
             if embeddings_path.exists():
                 with open(embeddings_path, 'rb') as f:
                     self.document_embeddings = pickle.load(f)
-                print(f"✓ 加载了 {len(self.document_embeddings)} 个文档的嵌入向量")
+                print(f"✓ Loaded embeddings for {len(self.document_embeddings)} documents")
                 
-                # 初始化嵌入模型
+                # Initialize embedding model
                 self.embedding_model = HuggingFaceEmbeddings(model_name="BAAI/bge-base-en-v1.5")
-                print("✓ 嵌入模型初始化完成")
+                print("✓ Embedding model initialization complete")
             else:
-                print("⚠️ 未找到嵌入向量文件，将使用关键词搜索")
+                print("⚠️ Embedding file not found, will use keyword search")
             
         except Exception as e:
-            print(f"加载Graph RAG数据失败: {e}")
+            print(f"Failed to load Graph RAG data: {e}")
             raise e
     
     def similarity_search(self, query: str, k: int = 5, jurisdictions: List[str] = None) -> List[Dict]:
-        """优化的语义相似性搜索"""
+        """Optimized semantic similarity search"""
         if not self.embedding_model or not self.document_embeddings:
-            print("使用关键词搜索模式")
+            print("Using keyword search mode")
             return self._keyword_search(query, k, jurisdictions)
         
         try:
-            print(f"执行向量搜索: {query}")
+            print(f"Executing vector search: {query}")
             
-            # 查询向量化
+            # Query vectorization
             query_embedding = self.embedding_model.embed_query(query)
             query_embedding = np.array(query_embedding).reshape(1, -1)
             
             results = []
             
-            # 筛选目标文档
+            # Filter target documents
             if jurisdictions:
                 target_doc_ids = self._filter_documents_by_jurisdiction(jurisdictions)
-                print(f"基于管辖区 {jurisdictions} 筛选到 {len(target_doc_ids)} 个文档")
+                print(f"Filtered to {len(target_doc_ids)} documents based on jurisdictions {jurisdictions}")
             else:
                 target_doc_ids = list(self.documents.keys())
-                print(f"搜索全部 {len(target_doc_ids)} 个文档")
+                print(f"Searching all {len(target_doc_ids)} documents")
             
-            # 计算相似度
+            # Calculate similarity
             for doc_id in target_doc_ids:
                 if doc_id not in self.document_embeddings:
                     continue
@@ -225,12 +225,12 @@ class OptimizedGraphRAGRetriever:
                 if len(chunks) == 0 or doc_embeddings.shape[0] == 0:
                     continue
                 
-                # 批量计算相似度
+                # Batch calculate similarity
                 similarities = cosine_similarity(query_embedding, doc_embeddings)[0]
                 
-                # 收集高质量结果
+                # Collect high-quality results
                 for i, (chunk, similarity) in enumerate(zip(chunks, similarities)):
-                    if similarity > 0.1:  # 相似度阈值
+                    if similarity > 0.1:  # Similarity threshold
                         results.append({
                             'page_content': chunk,
                             'similarity_score': float(similarity),
@@ -245,29 +245,29 @@ class OptimizedGraphRAGRetriever:
                             }
                         })
             
-            # 按相似度排序
+            # Sort by similarity
             results.sort(key=lambda x: x['similarity_score'], reverse=True)
             final_results = results[:k]
             
-            print(f"找到 {len(final_results)} 个高质量结果")
+            print(f"Found {len(final_results)} high-quality results")
             return final_results
             
         except Exception as e:
-            print(f"向量搜索失败，切换到关键词搜索: {e}")
+            print(f"Vector search failed, switching to keyword search: {e}")
             return self._keyword_search(query, k, jurisdictions)
     
     def _filter_documents_by_jurisdiction(self, jurisdictions: List[str]) -> List[str]:
-        """根据管辖区筛选文档（包含层级关系）"""
+        """Filter documents by jurisdiction (including hierarchical relationships)"""
         filtered_doc_ids = set()
         
         for jurisdiction in jurisdictions:
-            # 直接包含该管辖区的文档
+            # Documents directly containing this jurisdiction
             if jurisdiction in self.jurisdictions:
                 jur_data = self.jurisdictions[jurisdiction]
                 doc_ids = jur_data.get('document_ids', [])
                 filtered_doc_ids.update(doc_ids)
                 
-                # 包含父管辖区的文档（法律层级继承）
+                # Documents containing parent jurisdiction (legal hierarchy inheritance)
                 parent_id = jur_data.get('parent_id')
                 if parent_id and parent_id in self.jurisdictions:
                     parent_doc_ids = self.jurisdictions[parent_id].get('document_ids', [])
@@ -276,31 +276,31 @@ class OptimizedGraphRAGRetriever:
         return list(filtered_doc_ids)
     
     def _keyword_search(self, query: str, k: int = 5, jurisdictions: List[str] = None) -> List[Dict]:
-        """优化的关键词搜索"""
-        print(f"执行关键词搜索: {query}")
+        """Optimized keyword search"""
+        print(f"Executing keyword search: {query}")
         
-        # 预处理查询词
+        # Preprocess query terms
         query_words = [word.lower() for word in query.split() if len(word) > 2]
         results = []
         
-        # 筛选文档
+        # Filter documents
         if jurisdictions:
             target_doc_ids = self._filter_documents_by_jurisdiction(jurisdictions)
         else:
             target_doc_ids = list(self.documents.keys())
         
-        print(f"在 {len(target_doc_ids)} 个文档中搜索")
+        print(f"Searching in {len(target_doc_ids)} documents")
         
         for doc_id in target_doc_ids:
             doc_data = self.documents[doc_id]
             chunks = doc_data.get('chunks', [])
             
-            # 在chunks中搜索
+            # Search in chunks
             if chunks:
                 for i, chunk in enumerate(chunks):
                     chunk_lower = chunk.lower()
                     
-                    # 计算关键词匹配分数
+                    # Calculate keyword matching score
                     exact_matches = sum(1 for word in query_words if word in chunk_lower)
                     partial_matches = sum(0.5 for word in query_words 
                                         if any(word in token for token in chunk_lower.split()))
@@ -322,12 +322,12 @@ class OptimizedGraphRAGRetriever:
                             }
                         })
             else:
-                # 在整个文档中搜索
+                # Search in entire document
                 content = doc_data.get('content', '').lower()
                 exact_matches = sum(1 for word in query_words if word in content)
                 
                 if exact_matches > 0:
-                    # 提取包含关键词的片段
+                    # Extract relevant excerpt containing keywords
                     content_excerpt = self._extract_relevant_excerpt(
                         doc_data.get('content', ''), query_words[0] if query_words else query
                     )
@@ -345,31 +345,31 @@ class OptimizedGraphRAGRetriever:
                         }
                     })
         
-        # 排序并返回
+        # Sort and return
         score_key = 'keyword_score' if results and 'keyword_score' in results[0] else 'similarity_score'
         results.sort(key=lambda x: x.get(score_key, 0), reverse=True)
         
         final_results = results[:k]
-        print(f"关键词搜索找到 {len(final_results)} 个结果")
+        print(f"Keyword search found {len(final_results)} results")
         return final_results
     
     def _extract_relevant_excerpt(self, content: str, keyword: str, max_length: int = 800) -> str:
-        """提取包含关键词的相关片段"""
+        """Extract relevant excerpt containing keywords"""
         keyword_lower = keyword.lower()
         content_lower = content.lower()
         
-        # 找到关键词位置
+        # Find keyword position
         pos = content_lower.find(keyword_lower)
         if pos == -1:
             return content[:max_length]
         
-        # 提取关键词周围的内容
+        # Extract content around keyword
         start = max(0, pos - max_length // 2)
         end = min(len(content), pos + max_length // 2)
         
         excerpt = content[start:end]
         
-        # 清理截断的句子
+        # Clean truncated sentences
         if start > 0:
             first_period = excerpt.find('.')
             if first_period > 0:
@@ -384,7 +384,7 @@ class OptimizedGraphRAGRetriever:
 
 
 class GeographicJurisdictionDetector:
-    """地理管辖区检测器"""
+    """Geographic Jurisdiction Detector"""
     
     def __init__(self, llm):
         self.llm = llm
@@ -392,18 +392,28 @@ class GeographicJurisdictionDetector:
         self.allowlist = [n for n in node if not re.search(r'\d', n)]
     
     def detect_jurisdictions(self, text: str) -> List[str]:
-        """检测文本中涉及的管辖区"""
+        """Detect jurisdictions involved in the text"""
         prompt = (
-            "Extract ALL jurisdictions from the text.\n"
-            f"Allowed values (lowercase only): {self.allowlist}\n"
-            "Return a JSON array of strings using ONLY the allowed values. If none, return [].\n"
-            "Do not include any text outside the JSON.\n\n"
+            "You are a world-knowledge jurisdiction extractor.\n"
+            f"Allowed values (lowercase only): {json.dumps(self.allowlist)}\n"
+            "Task: From the text, extract ALL jurisdictions that are mentioned or clearly implied.\n"
+            "Rules:\n"
+            "- Use ONLY items from the allowed list.\n"
+            "- If a child jurisdiction is mentioned (e.g., a US state or an EU member state), "
+            "  ALSO include its commonly accepted parent jurisdiction(s) **based on your own knowledge** "
+            "  when those parents are present in the allowed list (e.g., 'california' -> 'usa', 'france' -> 'eu').\n"
+            "- Do NOT infer children from a parent-only mention.\n"
+            "- Normalize synonyms and language variants (e.g., 'united states'/'u.s.'/'america' -> 'usa'; "
+            "'european union' -> 'eu'; 'holland' -> 'netherlands').\n"
+            "- If an abbreviation is ambiguous (e.g., 'ca'), include it only if context clearly indicates "
+            "  the intended jurisdiction in the allowed list; otherwise omit it.\n"
+            "- Output ONLY a array of strings (e.g., [\"france\",\"eu\"]). No extra text.\n\n"
             f"Text:\n{text}"
         )
         resp = self.llm.invoke(prompt)
-        arr = json.loads(resp.content)               # 解析
-        arr = [x for x in arr if x in self.allowlist]         # 客户端再白名单过滤
-        detected_jurisdictions = list(dict.fromkeys(arr))               # 去重并保序
+        arr = json.loads(resp.content)               # Parse
+        arr = [x for x in arr if x in self.allowlist]         # Client-side allowlist filtering
+        detected_jurisdictions = list(dict.fromkeys(arr))               # Remove duplicates and preserve order
         
         state_to_country = {
             "california": "usa", "utah": "usa", "florida": "usa", "texas": "usa",
@@ -420,113 +430,113 @@ class GeographicJurisdictionDetector:
 
 
 class OptimizedLegalClassifier:
-    """优化的法律分类器 - 纯Graph RAG版本"""
+    """Optimized Legal Classifier - Pure Graph RAG Version"""
     
     def __init__(self, 
                  graph_db_path: str = "./legal_graph_db",
-                 model_name: str = "qwen-max"):
+                 model_name: str = "qwen-max-latest"):
         
-        print("=== 初始化优化法律分类器 (纯Graph RAG版本) ===")
+        print("=== Initializing Optimized Legal Classifier (Pure Graph RAG Version) ===")
         
-        # 检查数据库路径
+        # Check database path
         if not Path(graph_db_path).exists():
-            raise FileNotFoundError(f"Graph RAG数据库不存在: {graph_db_path}")
+            raise FileNotFoundError(f"Graph RAG database not found: {graph_db_path}")
         
-        # 初始化各组件
-        print("1. 初始化大语言模型...")
+        # Initialize components
+        print("1. Initializing Large Language Model...")
         self.llm = ChatTongyi(model=model_name, temperature=0.1)
         
-        print("2. 加载Graph RAG检索器...")
+        print("2. Loading Graph RAG Retriever...")
         self.retriever = OptimizedGraphRAGRetriever(graph_db_path)
         
-        print("3. 初始化黑话翻译器...")
+        print("3. Initializing Jargon Translator...")
         self.jargon_translator = JargonTranslator(graph_db_path)
         
-        print("4. 初始化地理管辖区检测器...")
-        self.geo_detector = GeographicJurisdictionDetector( self.llm)
+        print("4. Initializing Geographic Jurisdiction Detector...")
+        self.geo_detector = GeographicJurisdictionDetector(self.llm)
         
-        print("5. 初始化提示模板...")
+        print("5. Initializing Prompt Templates...")
         self.parser = JsonOutputParser()
         self.prompt = self._create_enhanced_prompt()
         
-        print("✓ 初始化完成！\n")
+        print("✓ Initialization complete!\n")
     
     def _create_enhanced_prompt(self) -> PromptTemplate:
-        """创建增强的提示模板"""
+        """Create enhanced prompt template"""
         template = """
-你是一位资深的法律合规分析师，具有Graph RAG法律知识图谱搜索能力。
+You are a senior legal compliance analyst with Graph RAG legal knowledge graph search capabilities.
 
-任务：将功能特性准确分类为以下三类之一：
-- "LegalRequirement"      (法律/法规/监管要求执行)
-- "BusinessDriven"        (产品策略/实验/安全选择；非法律强制要求)
-- "UnspecifiedNeedsHuman" (意图不明确或证据缺失/冲突)
+Task: Accurately classify feature characteristics into one of the following three categories:
+- "LegalRequirement"      (Legal/regulatory/compliance requirement enforcement)
+- "BusinessDriven"        (Product strategy/experimentation/security choice; non-legally mandated requirements)
+- "UnspecifiedNeedsHuman" (Unclear intent or missing/conflicting evidence)
 
-分析输入：
-原始功能: {original_feature}
+Analysis Input:
+Original Feature: {original_feature}
 
-翻译后功能(含黑话解释): {translated_feature}
+Translated Feature (with jargon explanations): {translated_feature}
 
-检测到的管辖区: {detected_jurisdictions}
+Detected Jurisdictions: {detected_jurisdictions}
 
-发现的黑话术语: {found_jargons}
+Found Jargon Terms: {found_jargons}
 
-Graph RAG搜索的法律证据:
+Graph RAG Searched Legal Evidence:
 {context}
 
-决策框架：
-LegalRequirement (得分 0-1)：
-+0.40 上下文引用特定法律条文 + 管辖区匹配
-+0.20 功能行为明确对应法律要求(如年龄限制↔儿童保护法)
-+0.20 地理限制符合法律管辖边界
-+0.20 至少有一个可信的法律条文引用
+Decision Framework:
+LegalRequirement (score 0-1):
++0.40 Context cites specific legal provisions + jurisdiction match
++0.20 Feature behavior clearly corresponds to legal requirements (e.g., age restrictions ↔ child protection laws)
++0.20 Geographic restrictions align with legal jurisdiction boundaries
++0.20 At least one credible legal provision citation
 
-BusinessDriven (得分 0-1)：
-+0.50 明确商业动机：A/B测试、实验、性能优化、增长
-+0.30 检测到管辖区但缺乏法律证据支持
-+0.20 地理差异主要用于产品推出策略
+BusinessDriven (score 0-1):
++0.50 Clear business motivation: A/B testing, experimentation, performance optimization, growth
++0.30 Jurisdictions detected but lack supporting legal evidence
++0.20 Geographic differences primarily for product rollout strategy
 
-UnspecifiedNeedsHuman: 如果LegalRequiremen或BusinessDriven的得分低于0.8，归为此类。此类的得分为1-LegalRequirement得分或1- BusinessDriven得分。
+UnspecifiedNeedsHuman: If LegalRequirement or BusinessDriven score is below 0.8, classify as this category. Score for this category is 1-LegalRequirement score or 1-BusinessDriven score.
 
-输出要求：
+Output Requirements:
 {{
   "assessment": "LegalRequirement" | "BusinessDriven" | "UnspecifiedNeedsHuman",
   "needs_compliance_logic": true | false | null,
-  "reasoning": "基于证据的详细分析 ≤200字",
+  "reasoning": "Evidence-based detailed analysis ≤200 words",
   "detected_jurisdictions": {detected_jurisdictions},
   "translated_jargon": {found_jargons},
-  "jurisdictions": ["确定的适用管辖区"],
+  "jurisdictions": ["determined applicable jurisdictions"],
   "regulations": [
     {{
-      "id": "法规ID或null",
-      "title": "法规名称", 
-      "jurisdiction": "管辖区",
+      "id": "regulation ID or null",
+      "title": "regulation name", 
+      "jurisdiction": "jurisdiction",
       "relevance": 0.0-1.0,
       "passages": [
-        {{"quote": "≤200字符的关键条文", "source_id": "文档ID"}}
+        {{"quote": "key provisions ≤200 chars", "source_id": "document ID"}}
       ],
       "decision": "Constrained" | "NotConstrained" | "Unclear",
-      "reason": "该法规如何约束此功能"
+      "reason": "how this regulation constrains this feature"
     }}
   ],
   "triggers": {{
-    "legal": ["识别的法律关键词"],
-    "business": ["识别的商业关键词"],
-    "ambiguity": ["模糊或冲突的表述"]
+    "legal": ["identified legal keywords"],
+    "business": ["identified business keywords"],
+    "ambiguity": ["ambiguous or conflicting statements"]
   }},
   "scores": {{
     "LegalRequirement": 0.0-1.0,
     "BusinessDriven": 0.0-1.0,
     "UnspecifiedNeedsHuman": 0.0-1.0
   }},
-  "citations": ["引用的来源文档ID"],
+  "citations": ["cited source document IDs"],
   "confidence": 0.10-0.99
 }}
 
-约束：
-- 仅使用上下文中的实际法律证据
-- assessment ≠ "LegalRequirement" 时，regulations=[]
-- 不得编造法律引用
-- 管辖区代码必须与数据库匹配
+Constraints:
+- Only use actual legal evidence from context
+- When assessment ≠ "LegalRequirement", regulations=[]
+- Do not fabricate legal citations
+- Jurisdiction codes must match database
 """
         
         return PromptTemplate(
@@ -538,14 +548,14 @@ UnspecifiedNeedsHuman: 如果LegalRequiremen或BusinessDriven的得分低于0.8�
         )
     
     def _search_legal_evidence(self, query: str, jurisdictions: List[str] = None) -> List[str]:
-        """搜索法律证据"""
+        """Search legal evidence"""
         try:
-            print(f"开始Graph RAG法律证据搜索...")
+            print(f"Starting Graph RAG legal evidence search...")
             
-            # 构建多样化的搜索查询
+            # Build diverse search queries
             search_queries = [query]
             
-            # 基于管辖区的特定查询
+            # Jurisdiction-specific queries
             if jurisdictions:
                 jurisdiction_specific = {
                     "utah": ["Utah Social Media Act", "minor curfew", "parental consent"],
@@ -561,7 +571,7 @@ UnspecifiedNeedsHuman: 如果LegalRequiremen或BusinessDriven的得分低于0.8�
                             search_queries.append(f"{term}")
                             search_queries.append(f"{term} {query}")
             
-            # 主题相关查询
+            # Topic-related queries
             query_lower = query.lower()
             if any(term in query_lower for term in ["minor", "child", "underage", "youth"]):
                 search_queries.extend(["child protection law", "minor safety", "parental consent"])
@@ -572,15 +582,15 @@ UnspecifiedNeedsHuman: 如果LegalRequiremen或BusinessDriven的得分低于0.8�
             if "curfew" in query_lower:
                 search_queries.extend(["time restrictions", "access limitations"])
             
-            # 执行搜索
+            # Execute searches
             all_results = []
             seen_docs = set()
             
-            print(f"执行 {len(search_queries)} 个搜索查询")
+            print(f"Executing {len(search_queries)} search queries")
             
-            for i, search_query in enumerate(search_queries[:8]):  # 限制查询数量
+            for i, search_query in enumerate(search_queries[:8]):  # Limit query count
                 try:
-                    print(f"  查询 {i+1}: {search_query}")
+                    print(f"  Query {i+1}: {search_query}")
                     docs = self.retriever.similarity_search(
                         search_query, k=3, jurisdictions=jurisdictions
                     )
@@ -589,12 +599,12 @@ UnspecifiedNeedsHuman: 如果LegalRequiremen或BusinessDriven的得分低于0.8�
                         doc_id = doc['metadata'].get('document_id')
                         chunk_id = f"{doc_id}_{doc['metadata'].get('chunk_index', 0)}"
                         
-                        # 避免重复
+                        # Avoid duplicates
                         if chunk_id in seen_docs:
                             continue
                         seen_docs.add(chunk_id)
                         
-                        # 构建结果信息
+                        # Build result information
                         score_info = ""
                         if 'similarity_score' in doc:
                             score_info = f"Similarity: {doc['similarity_score']:.3f}"
@@ -607,35 +617,34 @@ UnspecifiedNeedsHuman: 如果LegalRequiremen或BusinessDriven的得分低于0.8�
                         source_info += f"Doc: {doc['metadata'].get('document_title', 'Unknown')} | "
                         source_info += f"Type: {doc['metadata'].get('document_type', 'Unknown')} | "
                         source_info += f"Jurisdiction: {doc['metadata'].get('jurisdiction_id', 'Unknown')}"
-                        1
-                
+                        
                         content = f"{source_info}\nContent: {doc['page_content'][:1000]}"
                         all_results.append(content)
                         
-                        print(f"    ✓ 添加结果: {doc['metadata'].get('document_title', 'Unknown')[:30]}")
+                        print(f"    ✓ Added result: {doc['metadata'].get('document_title', 'Unknown')[:30]}")
                         
                         if len(all_results) >= 8:
                             break
                     
                 except Exception as e:
-                    print(f"    查询失败: {e}")
+                    print(f"    Query failed: {e}")
                 
                 if len(all_results) >= 8:
                     break
             
-            print(f"Graph RAG搜索完成，共找到 {len(all_results)} 条法律证据")
+            print(f"Graph RAG search complete, found {len(all_results)} legal evidence items")
             
-            # 如果结果不足，进行补充搜索
+            # If insufficient results, perform supplementary search
             if len(all_results) < 3:
-                print("结果不足，执行补充搜索...")
+                print("Insufficient results, performing supplementary search...")
                 fallback_queries = ["law", "regulation", "requirement", "compliance"]
                 for fallback_query in fallback_queries:
                     try:
                         docs = self.retriever.similarity_search(fallback_query, k=2)
-                        for doc in docs[:1]:  # 只取一个
+                        for doc in docs[:1]:  # Only take one
                             content = f"[GraphRAG-Fallback] {fallback_query}\n{doc['page_content'][:800]}"
                             all_results.append(content)
-                            print(f"  添加补充结果: {doc['metadata'].get('document_title', 'Unknown')}")
+                            print(f"  Added supplementary result: {doc['metadata'].get('document_title', 'Unknown')}")
                             if len(all_results) >= 5:
                                 break
                     except:
@@ -646,51 +655,51 @@ UnspecifiedNeedsHuman: 如果LegalRequiremen或BusinessDriven的得分低于0.8�
             return all_results
             
         except Exception as e:
-            print(f"Graph RAG搜索失败: {e}")
+            print(f"Graph RAG search failed: {e}")
             import traceback
             traceback.print_exc()
-            return [f"搜索失败: {str(e)}"]
+            return [f"Search failed: {str(e)}"]
     
     def classify_feature(self, feature_description: str) -> Dict[str, Any]:
         """
-        完整的功能特性分类流程
+        Complete feature classification workflow
         """
         print(f"\n{'='*60}")
-        print(f"开始分析功能: {feature_description[:80]}...")
+        print(f"Starting analysis of feature: {feature_description[:80]}...")
         print(f"{'='*60}")
         
-        # 步骤1: 黑话识别与翻译
-        print("步骤1: 黑话识别与翻译")
+        # Step 1: Jargon identification and translation
+        print("Step 1: Jargon identification and translation")
         translated_text, found_jargons = self.jargon_translator.translate_jargon(feature_description)
         
         if found_jargons:
-            print(f"  ✓ 发现黑话: {found_jargons}")
-            print(f"  ✓ 翻译结果: {translated_text}")
+            print(f"  ✓ Found jargon: {found_jargons}")
+            print(f"  ✓ Translation result: {translated_text}")
         else:
-            print("  - 未发现黑话术语")
+            print("  - No jargon terms found")
         
-        # 步骤2: 地理管辖区检测
-        print("步骤2: 地理管辖区检测")
+        # Step 2: Geographic jurisdiction detection
+        print("Step 2: Geographic jurisdiction detection")
         detected_jurisdictions = self.geo_detector.detect_jurisdictions(feature_description)
         if detected_jurisdictions:
-            print(f"  ✓ 检测到管辖区: {detected_jurisdictions}")
-            print("步骤3: Graph RAG法律证据搜索")
+            print(f"  ✓ Detected jurisdictions: {detected_jurisdictions}")
+            print("Step 3: Graph RAG legal evidence search")
             search_query = f"{feature_description} legal requirements compliance regulation"
             
             legal_evidence = self._search_legal_evidence(search_query, detected_jurisdictions)
-            print(f"  ✓ 找到 {len(legal_evidence)} 条法律证据")
+            print(f"  ✓ Found {len(legal_evidence)} legal evidence items")
         else:
-            print("  - 未检测到特定管辖区")
-            print("步骤3: Graph RAG法律证据搜索")
+            print("  - No specific jurisdictions detected")
+            print("Step 3: Graph RAG legal evidence search")
             legal_evidence = []
-            print("  - 跳过法律证据搜索")
+            print("  - Skipping legal evidence search")
         
-        # 步骤4: 构建上下文
-        print("步骤4: 构建上下文")
+        # Step 4: Build context
+        print("Step 4: Build context")
         context = "\n\n".join(legal_evidence) if legal_evidence else "NO_LEGAL_EVIDENCE_FOUND"
         
-        # 步骤5: LLM分析与分类
-        print("步骤5: 大模型分析与分类")
+        # Step 5: LLM analysis and classification
+        print("Step 5: Large Language Model analysis and classification")
         
         try:
             inputs = {
@@ -698,7 +707,7 @@ UnspecifiedNeedsHuman: 如果LegalRequiremen或BusinessDriven的得分低于0.8�
                 "translated_feature": translated_text,
                 "detected_jurisdictions": detected_jurisdictions,
                 "found_jargons": found_jargons,
-                "context": context[:5000]  # 控制上下文长度
+                "context": context[:5000]  # Control context length
             }
 
             formatted_prompt = self.prompt.format(**inputs)
@@ -706,15 +715,16 @@ UnspecifiedNeedsHuman: 如果LegalRequiremen或BusinessDriven的得分低于0.8�
             try:
                 result = self.parser.parse(response)
             except Exception:
-                # 失败则追加 JSON 约束，再次调用
+                # If failed, append JSON constraints and call again
                 fix_prompt = (
                     f"{formatted_prompt}\n\n"
-                    "请严格只输出**合法 JSON**：使用双引号、无注释、无多余文本/Markdown代码块；"
-                    "若无值用 null，不要省略字段。仅输出 JSON。"
+                    "Please strictly output **valid JSON only**: use double quotes, no comments, no extra text/Markdown code blocks; "
+                    "use null for missing values, don't omit fields. Output JSON only."
                 )
                 response = self.llm.invoke(fix_prompt)
                 result = self.parser.parse(response.content)
-            # 添加处理元数据
+            
+            # Add processing metadata
             result["processing_metadata"] = {
                 "workflow_completed": True,
                 "data_source": "Pure Graph RAG",
@@ -727,19 +737,19 @@ UnspecifiedNeedsHuman: 如果LegalRequiremen或BusinessDriven的得分低于0.8�
                 "search_method": "Vector" if self.retriever.embedding_model else "Keyword"
             }
             
-            print(f"  ✓ 分类完成: {result.get('assessment', 'Unknown')}")
-            print(f"  ✓ 置信度: {result.get('confidence', 'Unknown')}")
+            print(f"  ✓ Classification complete: {result.get('assessment', 'Unknown')}")
+            print(f"  ✓ Confidence: {result.get('confidence', 'Unknown')}")
             if result.get('needs_compliance_logic') is not None:
-                print(f"  ✓ 需要合规逻辑: {result.get('needs_compliance_logic')}")
+                print(f"  ✓ Needs compliance logic: {result.get('needs_compliance_logic')}")
             
             return result
             
         except Exception as e:
-            print(f"  ✗ 分类失败: {e}")
+            print(f"  ✗ Classification failed: {e}")
             return {
                 "assessment": "UnspecifiedNeedsHuman",
                 "needs_compliance_logic": None,
-                "reasoning": f"分类过程出错: {str(e)}",
+                "reasoning": f"Classification process error: {str(e)}",
                 "detected_jurisdictions": detected_jurisdictions,
                 "translated_jargon": found_jargons,
                 "error": str(e),
@@ -753,14 +763,14 @@ UnspecifiedNeedsHuman: 如果LegalRequiremen或BusinessDriven的得分低于0.8�
             }
     
     def batch_classify(self, feature_list: List[str]) -> List[Dict[str, Any]]:
-        """批量分类功能"""
+        """Batch classify features"""
         results = []
         total = len(feature_list)
         
-        print(f"开始批量分类 {total} 个功能特性")
+        print(f"Starting batch classification of {total} feature characteristics")
         
         for i, feature in enumerate(feature_list, 1):
-            print(f"\n批量进度: {i}/{total}")
+            print(f"\nBatch progress: {i}/{total}")
             try:
                 result = self.classify_feature(feature)
                 results.append({
@@ -770,7 +780,7 @@ UnspecifiedNeedsHuman: 如果LegalRequiremen或BusinessDriven的得分低于0.8�
                     'success': True
                 })
             except Exception as e:
-                print(f"功能 {i} 分类失败: {e}")
+                print(f"Feature {i} classification failed: {e}")
                 results.append({
                     'index': i,
                     'input': feature,
@@ -779,50 +789,50 @@ UnspecifiedNeedsHuman: 如果LegalRequiremen或BusinessDriven的得分低于0.8�
                 })
         
         success_count = sum(1 for r in results if r['success'])
-        print(f"\n批量分类完成: {success_count}/{total} 成功")
+        print(f"\nBatch classification complete: {success_count}/{total} successful")
         
         return results
 
 
 def main():
-    """主函数演示"""
-    print("=== 优化法律分类系统 - 纯Graph RAG版本 ===\n")
+    """Main function demonstration"""
+    print("=== Optimized Legal Classification System - Pure Graph RAG Version ===\n")
     
-    # 初始化分类器
+    # Initialize classifier
     try:
-        # 修改为你的实际路径
+        # Modify to your actual path
         graph_db_path = "./dynamic_legal_graph_db"
         
         classifier = OptimizedLegalClassifier(graph_db_path=graph_db_path)
-        print("✓ 分类器初始化成功\n")
+        print("✓ Classifier initialization successful\n")
         
     except Exception as e:
-        print(f"✗ 分类器初始化失败: {e}")
-        print("\n请检查:")
-        print("1. Graph RAG数据库路径是否正确")
-        print("2. 是否已运行第一份代码生成数据库")
-        print("3. 数据库是否包含必要文件: documents.json, jurisdictions.json, embeddings.pkl")
+        print(f"✗ Classifier initialization failed: {e}")
+        print("\nPlease check:")
+        print("1. Is the Graph RAG database path correct?")
+        print("2. Have you run the first code to generate the database?")
+        print("3. Does the database contain necessary files: documents.json, jurisdictions.json, embeddings.pkl?")
         return
     
-    # 测试数据
+    # Test data
     test_features = [
         {
-            "name": "",
-            "description": "eature reads user location to enforce France's copyright rules"
+            "name": "Copyright Enforcement Feature",
+            "description": "Feature reads user location to enforce France's copyright rules"
         }
     ]
     
-    # 执行分类测试
+    # Execute classification tests
     results = []
     for i, test_case in enumerate(test_features):
         print(f"\n{'='*80}")
-        print(f"测试案例 {i+1}/{len(test_features)}: {test_case['name']}")
+        print(f"Test Case {i+1}/{len(test_features)}: {test_case['name']}")
         print(f"{'='*80}")
         
-        # 执行分类
+        # Execute classification
         result = classifier.classify_feature(test_case['description'])
         
-        # 保存结果
+        # Save result
         test_result = {
             'case_name': test_case['name'],
             'input': test_case['description'],
@@ -830,95 +840,95 @@ def main():
         }
         results.append(test_result)
         
-        # 显示关键结果
-        print(f"\n📋 分类结果摘要:")
-        print(f"  🏷️  分类: {result.get('assessment', 'Unknown')}")
-        print(f"  🔧 需要合规逻辑: {result.get('needs_compliance_logic', 'Unknown')}")
-        print(f"  📊 置信度: {result.get('confidence', 'Unknown')}")
+        # Display key results
+        print(f"\n📋 Classification Result Summary:")
+        print(f"  🏷️  Classification: {result.get('assessment', 'Unknown')}")
+        print(f"  🔧 Needs compliance logic: {result.get('needs_compliance_logic', 'Unknown')}")
+        print(f"  📊 Confidence: {result.get('confidence', 'Unknown')}")
         
         if result.get('detected_jurisdictions'):
-            print(f"  🌍 检测管辖区: {result.get('detected_jurisdictions')}")
+            print(f"  🌍 Detected jurisdictions: {result.get('detected_jurisdictions')}")
         
         if result.get('translated_jargon'):
-            print(f"  🔤 发现黑话: {result.get('translated_jargon')}")
+            print(f"  🔤 Found jargon: {result.get('translated_jargon')}")
         
         reasoning = result.get('reasoning', '')
         if reasoning:
-            print(f"  💭 推理: {reasoning[:100]}{'...' if len(reasoning) > 100 else ''}")
+            print(f"  💭 Reasoning: {reasoning[:100]}{'...' if len(reasoning) > 100 else ''}")
         
-        # 显示处理元数据
+        # Display processing metadata
         if result.get('processing_metadata'):
             metadata = result['processing_metadata']
-            print(f"\n🔍 处理统计:")
-            print(f"  ✅ 工作流完成: {metadata.get('workflow_completed', False)}")
-            print(f"  🔍 搜索方法: {metadata.get('search_method', 'Unknown')}")
-            print(f"  📄 法律证据数: {metadata.get('legal_evidence_count', 0)}")
-            print(f"  📝 上下文长度: {metadata.get('context_length', 0)}")
+            print(f"\n🔍 Processing Statistics:")
+            print(f"  ✅ Workflow completed: {metadata.get('workflow_completed', False)}")
+            print(f"  🔍 Search method: {metadata.get('search_method', 'Unknown')}")
+            print(f"  📄 Legal evidence count: {metadata.get('legal_evidence_count', 0)}")
+            print(f"  📝 Context length: {metadata.get('context_length', 0)}")
         
         print(f"\n{'-'*60}")
     
-    # 保存结果到文件
+    # Save results to file
     try:
         output_file = 'optimized_graph_rag_classification_results.json'
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(results, f, indent=4, ensure_ascii=False, default=str)
         
-        print(f"\n💾 结果已保存到: {output_file}")
-        print(f"📊 总计处理: {len(results)} 个测试案例")
+        print(f"\n💾 Results saved to: {output_file}")
+        print(f"📊 Total processed: {len(results)} test cases")
         
-        # 统计分类结果
+        # Count classification results
         assessments = [r['output'].get('assessment', 'Error') for r in results]
         from collections import Counter
         assessment_counts = Counter(assessments)
         
-        print(f"\n📈 分类统计:")
+        print(f"\n📈 Classification Statistics:")
         for assessment, count in assessment_counts.items():
-            print(f"  {assessment}: {count} 个")
+            print(f"  {assessment}: {count} cases")
         
     except Exception as e:
-        print(f"\n❌ 保存结果失败: {e}")
+        print(f"\n❌ Failed to save results: {e}")
 
 
 def interactive_mode():
-    """交互模式"""
+    """Interactive mode"""
     try:
         classifier = OptimizedLegalClassifier()
-        print("\n🔍 交互式法律功能分类器")
-        print("💡 输入 'quit' 退出程序")
-        print("📍 可用管辖区: usa, california, utah, florida, texas, eu, germany, france, italy, spain, netherlands, reference")
+        print("\n🔍 Interactive Legal Feature Classifier")
+        print("💡 Enter 'quit' to exit the program")
+        print("📍 Available jurisdictions: usa, california, utah, florida, texas, eu, germany, france, italy, spain, netherlands, reference")
         
         while True:
             print(f"\n{'-'*50}")
             try:
-                feature_input = input("🎯 请输入功能描述: ").strip()
+                feature_input = input("🎯 Please enter feature description: ").strip()
                 if feature_input.lower() in ['quit', 'exit', 'q']:
-                    print("👋 再见!")
+                    print("👋 Goodbye!")
                     break
                 
                 if not feature_input:
-                    print("⚠️ 请输入有效的功能描述")
+                    print("⚠️ Please enter a valid feature description")
                     continue
                 
-                # 执行分类
+                # Execute classification
                 result = classifier.classify_feature(feature_input)
                 
-                # 显示结果
-                print(f"\n📋 分类结果:")
+                # Display results
+                print(f"\n📋 Classification Result:")
                 print(f"  🏷️  {result.get('assessment', 'Unknown')}")
-                print(f"  📊 置信度: {result.get('confidence', 'N/A')}")
-                print(f"  💭 推理: {result.get('reasoning', 'N/A')}")
+                print(f"  📊 Confidence: {result.get('confidence', 'N/A')}")
+                print(f"  💭 Reasoning: {result.get('reasoning', 'N/A')}")
                 
                 if result.get('regulations'):
-                    print(f"  ⚖️  相关法规: {len(result['regulations'])} 个")
+                    print(f"  ⚖️  Related regulations: {len(result['regulations'])} items")
                 
             except KeyboardInterrupt:
-                print("\n\n👋 程序被中断，再见!")
+                print("\n\n👋 Program interrupted, goodbye!")
                 break
             except Exception as e:
-                print(f"\n❌ 处理出错: {e}")
+                print(f"\n❌ Processing error: {e}")
                 
     except Exception as e:
-        print(f"❌ 无法启动交互模式: {e}")
+        print(f"❌ Cannot start interactive mode: {e}")
 
 
 if __name__ == "__main__":

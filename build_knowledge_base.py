@@ -22,7 +22,7 @@ load_dotenv()
 
 
 class JurisdictionLevel(Enum):
-    """法律管辖层级"""
+    """Legal jurisdiction levels"""
     INTERNATIONAL = "international"  
     FEDERAL = "federal"  
     STATE = "state"
@@ -32,7 +32,7 @@ class JurisdictionLevel(Enum):
 
 @dataclass
 class JurisdictionNode:
-    """管辖区节点"""
+    """Jurisdiction node"""
     id: str
     name: str
     level: JurisdictionLevel
@@ -63,7 +63,7 @@ class JurisdictionNode:
 
 @dataclass
 class LegalDocument:
-    """法律文档节点"""
+    """Legal document node"""
     id: str
     title: str
     content: str
@@ -83,7 +83,7 @@ class LegalDocument:
             self.related_document_ids = []
     
     def to_dict(self):
-        """转换为可JSON序列化的字典"""
+        """Convert to JSON-serializable dictionary"""
         return {
             'id': self.id,
             'title': self.title,
@@ -97,18 +97,18 @@ class LegalDocument:
 
 
 class DynamicQwenClassifier:
-    """支持动态管辖区识别的分类器"""
+    """Classifier supporting dynamic jurisdiction recognition"""
     
     def __init__(self, api_url: str = None, api_key: str = None):
         self.api_url = (api_url or os.getenv("DASHSCOPE_API_BASE"))
-        self.model_name = "qwen-max"
+        self.model_name = "qwen-max-latest"
         
         if api_key:
             self.api_key = api_key
         elif os.getenv("DASHSCOPE_API_KEY"):
             self.api_key = os.getenv("DASHSCOPE_API_KEY")
         else:
-            print("未找到API密钥，将尝试免费方案或提示输入...")
+            print("API key not found, will try free plan or prompt for input...")
             self.api_key = self._get_api_key_interactively()
         
         self.headers = {
@@ -118,46 +118,46 @@ class DynamicQwenClassifier:
             self.headers["Authorization"] = f"Bearer {self.api_key}"
     
     def _get_api_key_interactively(self) -> Optional[str]:
-        """交互式获取API密钥"""
-        print("请输入您的千问API密钥（如使用免费方案可直接回车）：")
+        """Interactively get API key"""
+        print("Please enter your Qwen API key (press Enter if using free plan):")
         api_key = getpass.getpass("API Key: ").strip()
         return api_key if api_key else None
     
     def classify_document(self, document_content: str, file_path: str = "") -> Dict[str, Any]:
-        """使用Qwen分类文档 - 支持动态管辖区识别"""
+        """Use Qwen to classify documents - supports dynamic jurisdiction recognition"""
         content_sample = document_content[:800] if len(document_content) > 800 else document_content
         
-        prompt = f"""请分析以下法律文档，判断其管辖区和文档类型，并以JSON格式返回结果。
+        prompt = f"""Please analyze the following legal document, determine its jurisdiction and document type, and return the result in JSON format.
 
-文件路径: {file_path}
-文档内容: {content_sample}
+File path: {file_path}
+Document content: {content_sample}
 
-请返回JSON格式，包含以下字段：
+Please return JSON format with the following fields:
 {{
-    "jurisdiction_code": "管辖区代码（如：california, new_jersey, texas等）",
-    "jurisdiction_name": "管辖区全名（如：California, New Jersey, Texas等）", 
-    "jurisdiction_level": "管辖层级（international/federal/state/local/reference）",
-    "parent_jurisdiction": "父管辖区代码（如州的父级是usa，国家的父级是eu等）",
-    "document_type": "文档类型",
-    "confidence": "置信度(0-1)",
-    "title": "文档标题",
-    "year": "年份（如果能识别）",
-    "bill_number": "法案编号（如果有）"
+    "jurisdiction_code": "jurisdiction code (e.g.: california, new_jersey, texas, etc.)",
+    "jurisdiction_name": "full jurisdiction name (e.g.: California, New Jersey, Texas, etc.)", 
+    "jurisdiction_level": "jurisdiction level (international/federal/state/local/reference)",
+    "parent_jurisdiction": "parent jurisdiction code (e.g., state's parent is usa, country's parent is eu, etc.)",
+    "document_type": "document type",
+    "confidence": "confidence level (0-1)",
+    "title": "document title",
+    "year": "year (if identifiable)",
+    "bill_number": "bill number (if any)"
 }}
 
-管辖层级说明：
-- "international": 国际组织（如EU）
-- "federal": 国家级（如USA, Germany, France等）
-- "state": 州/省级（如California, Texas, New Jersey等）
-- "reference": 参考文档（术语表、定义等）
+Jurisdiction level descriptions:
+- "international": International organizations (e.g., EU)
+- "federal": National level (e.g., USA, Germany, France, etc.)
+- "state": State/provincial level (e.g., California, Texas, New Jersey, etc.)
+- "reference": Reference documents (glossaries, definitions, etc.)
 
-父管辖区推断规则：
-- 美国各州的父级是"usa"
-- 欧盟国家的父级是"eu" 
-- 独立国家的父级可以是null
+Parent jurisdiction inference rules:
+- US states' parent is "usa"
+- EU countries' parent is "eu" 
+- Independent countries' parent can be null
 
-请识别任何管辖区，不要局限于预设选项。如果是新的管辖区，请准确标识其层级和父级关系。
-请只返回JSON，不要其他说明。"""
+Please identify any jurisdiction, don't limit to preset options. If it's a new jurisdiction, please accurately identify its level and parent relationship.
+Please return only JSON, no other explanations."""
 
         try:
             payload = {
@@ -165,7 +165,7 @@ class DynamicQwenClassifier:
                 "messages": [
                     {
                         "role": "system",
-                        "content": "你是一个专业的法律文档分析助手，擅长识别任何国家和地区的法律文档管辖区和类型。你可以识别全世界任何管辖区，不局限于预设选项。"
+                        "content": "You are a professional legal document analysis assistant, skilled at identifying legal document jurisdictions and types from any country or region. You can identify any jurisdiction worldwide, not limited to preset options."
                     },
                     {
                         "role": "user",
@@ -188,7 +188,7 @@ class DynamicQwenClassifier:
                 content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
                 
                 try:
-                    # 清理markdown格式
+                    # Clean markdown format
                     content = content.strip()
                     if content.startswith("```json"):
                         content = content[7:]
@@ -198,7 +198,7 @@ class DynamicQwenClassifier:
                     
                     classification = json.loads(content)
                     
-                    # 验证并补充必要字段
+                    # Validate and supplement necessary fields
                     required_fields = {
                         "jurisdiction_code": "unknown",
                         "jurisdiction_name": "Unknown Jurisdiction", 
@@ -215,15 +215,15 @@ class DynamicQwenClassifier:
                     return classification
                     
                 except json.JSONDecodeError as e:
-                    print(f"JSON解析失败: {e}")
-                    print(f"原始内容: {content}")
+                    print(f"JSON parsing failed: {e}")
+                    print(f"Original content: {content}")
             else:
-                print(f"API调用失败: {response.status_code}")
+                print(f"API call failed: {response.status_code}")
                 
         except Exception as e:
-            print(f"分类器调用异常: {e}")
+            print(f"Classifier call exception: {e}")
         
-        # 返回默认分类
+        # Return default classification
         return {
             "jurisdiction_code": "unknown",
             "jurisdiction_name": "Unknown Jurisdiction",
@@ -236,7 +236,7 @@ class DynamicQwenClassifier:
 
 
 class DynamicLegalGraphRAG:
-    """支持动态管辖区扩展的Legal Graph RAG"""
+    """Legal Graph RAG supporting dynamic jurisdiction expansion"""
     
     def __init__(self, 
                  embedding_model_name: str = "BAAI/bge-base-en-v1.5",
@@ -249,18 +249,18 @@ class DynamicLegalGraphRAG:
         self.max_chunk_size = max_chunk_size
         self.overlap_size = overlap_size
         
-        # 使用动态分类器
+        # Use dynamic classifier
         self.classifier = DynamicQwenClassifier(qwen_api_url, qwen_api_key)
         
-        # 图数据结构
+        # Graph data structure
         self.graph = nx.DiGraph()
         self.jurisdictions: Dict[str, JurisdictionNode] = {}
         self.documents: Dict[str, LegalDocument] = {}
         
-        # 向量存储
+        # Vector storage
         self.document_embeddings: Dict[str, np.ndarray] = {}
         
-        # 初始化RecursiveCharacterTextSplitter用于统一分块
+        # Initialize RecursiveCharacterTextSplitter for unified chunking
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=self.max_chunk_size,
             chunk_overlap=self.overlap_size,
@@ -268,16 +268,16 @@ class DynamicLegalGraphRAG:
             separators=["\n\n", "\n", ". ", "! ", "? ", "; ", ": ", " ", ""]
         )
         
-        # 初始化基础管辖区结构
+        # Initialize base jurisdiction structure
         self._initialize_base_jurisdictions()
     
     def _initialize_base_jurisdictions(self):
-        """初始化最小化基础管辖区结构"""
+        """Initialize minimal base jurisdiction structure"""
         base_jurisdictions = [
-            # 参考文档类别
+            # Reference document category
             ("reference", "Reference Documents", JurisdictionLevel.REFERENCE, None),
             
-            # 主要根节点
+            # Main root nodes
             ("eu", "European Union", JurisdictionLevel.INTERNATIONAL, None),
             ("usa", "United States", JurisdictionLevel.FEDERAL, None),
             ("canada", "Canada", JurisdictionLevel.FEDERAL, None),
@@ -285,9 +285,9 @@ class DynamicLegalGraphRAG:
             ("china", "China", JurisdictionLevel.FEDERAL, None),
         ]
         
-        print(f"初始化 {len(base_jurisdictions)} 个基础管辖区根节点...")
+        print(f"Initializing {len(base_jurisdictions)} base jurisdiction root nodes...")
         
-        # 创建管辖区节点
+        # Create jurisdiction nodes
         for jur_id, name, level, parent_id in base_jurisdictions:
             jurisdiction = JurisdictionNode(
                 id=jur_id,
@@ -300,23 +300,23 @@ class DynamicLegalGraphRAG:
                 }
             )
             self.jurisdictions[jur_id] = jurisdiction
-            print(f"  创建根节点: {name} [{level.value}]")
+            print(f"  Created root node: {name} [{level.value}]")
         
-        # 建立父子关系
+        # Establish parent-child relationships
         for jur_id, jurisdiction in self.jurisdictions.items():
             if jurisdiction.parent_id and jurisdiction.parent_id in self.jurisdictions:
                 self.jurisdictions[jurisdiction.parent_id].children_ids.append(jur_id)
         
-        # 添加到图中
+        # Add to graph
         for jur_id, jurisdiction in self.jurisdictions.items():
             self.graph.add_node(jur_id, node_type="jurisdiction", data=jurisdiction)
             if jurisdiction.parent_id and jurisdiction.parent_id in self.jurisdictions:
                 self.graph.add_edge(jurisdiction.parent_id, jur_id, relationship="governs")
         
-        print("基础管辖区结构初始化完成")
+        print("Base jurisdiction structure initialization complete")
 
     def _create_default_parent_jurisdiction(self, parent_code: str):
-        """创建默认的父管辖区"""
+        """Create default parent jurisdiction"""
         default_jurisdictions = {
             "usa": ("United States", JurisdictionLevel.FEDERAL, None),
             "eu": ("European Union", JurisdictionLevel.INTERNATIONAL, None),
@@ -328,7 +328,7 @@ class DynamicLegalGraphRAG:
         if parent_code in default_jurisdictions:
             name, level, grandparent = default_jurisdictions[parent_code]
             
-            # 确保祖父级管辖区也存在
+            # Ensure grandparent jurisdiction also exists
             if grandparent and grandparent not in self.jurisdictions:
                 self._create_default_parent_jurisdiction(grandparent)
             
@@ -347,15 +347,15 @@ class DynamicLegalGraphRAG:
             self.jurisdictions[parent_code] = parent_jurisdiction
             self.graph.add_node(parent_code, node_type="jurisdiction", data=parent_jurisdiction)
             
-            # 建立与祖父级的关系
+            # Establish relationship with grandparent
             if grandparent and grandparent in self.jurisdictions:
                 self.jurisdictions[grandparent].children_ids.append(parent_code)
                 self.graph.add_edge(grandparent, parent_code, relationship="governs")
             
-            print(f"自动创建父管辖区: {name} -> 父级: {grandparent or 'None'}")
+            print(f"Auto-created parent jurisdiction: {name} -> Parent: {grandparent or 'None'}")
         else:
-            # 创建通用管辖区
-            print(f"警告: 未知父管辖区 {parent_code}，创建为通用管辖区")
+            # Create generic jurisdiction
+            print(f"Warning: Unknown parent jurisdiction {parent_code}, creating as generic jurisdiction")
             
             generic_jurisdiction = JurisdictionNode(
                 id=parent_code,
@@ -374,31 +374,31 @@ class DynamicLegalGraphRAG:
             self.graph.add_node(parent_code, node_type="jurisdiction", data=generic_jurisdiction)
 
     def ensure_jurisdiction_exists(self, classification: Dict[str, Any]) -> str:
-        """确保管辖区节点存在，如果不存在则动态创建"""
+        """Ensure jurisdiction node exists, create dynamically if not exists"""
         jurisdiction_code = classification.get("jurisdiction_code", "unknown")
         jurisdiction_name = classification.get("jurisdiction_name", "Unknown")
         jurisdiction_level_str = classification.get("jurisdiction_level", "reference")
         parent_code = classification.get("parent_jurisdiction")
         
-        # 如果管辖区已存在，直接返回
+        # If jurisdiction already exists, return directly
         if jurisdiction_code in self.jurisdictions:
             return jurisdiction_code
         
-        print(f"发现新管辖区: {jurisdiction_code} ({jurisdiction_name})")
+        print(f"Found new jurisdiction: {jurisdiction_code} ({jurisdiction_name})")
         
-        # 确定管辖层级
+        # Determine jurisdiction level
         try:
             jurisdiction_level = JurisdictionLevel(jurisdiction_level_str)
         except ValueError:
-            print(f"未知管辖层级: {jurisdiction_level_str}，使用默认值 reference")
+            print(f"Unknown jurisdiction level: {jurisdiction_level_str}, using default value reference")
             jurisdiction_level = JurisdictionLevel.REFERENCE
         
-        # 确保父管辖区存在
+        # Ensure parent jurisdiction exists
         if parent_code and parent_code not in self.jurisdictions:
-            print(f"父管辖区 {parent_code} 不存在，尝试创建...")
+            print(f"Parent jurisdiction {parent_code} does not exist, attempting to create...")
             self._create_default_parent_jurisdiction(parent_code)
         
-        # 创建新的管辖区节点
+        # Create new jurisdiction node
         new_jurisdiction = JurisdictionNode(
             id=jurisdiction_code,
             name=jurisdiction_name,
@@ -411,90 +411,90 @@ class DynamicLegalGraphRAG:
             }
         )
         
-        # 添加到系统中
+        # Add to system
         self.jurisdictions[jurisdiction_code] = new_jurisdiction
         
-        # 更新父子关系
+        # Update parent-child relationships
         if parent_code and parent_code in self.jurisdictions:
             self.jurisdictions[parent_code].children_ids.append(jurisdiction_code)
         
-        # 添加到图中
+        # Add to graph
         self.graph.add_node(jurisdiction_code, node_type="jurisdiction", data=new_jurisdiction)
         if parent_code and parent_code in self.jurisdictions:
             self.graph.add_edge(parent_code, jurisdiction_code, relationship="governs")
         
-        print(f"成功创建管辖区: {jurisdiction_name} -> 父级: {parent_code or 'None'}")
+        print(f"Successfully created jurisdiction: {jurisdiction_name} -> Parent: {parent_code or 'None'}")
         return jurisdiction_code
 
     def clean_text(self, text: str) -> str:
-        """清洗文本内容"""
-        print("开始文本清洗...")
+        """Clean text content"""
+        print("Starting text cleaning...")
         
-        # 移除页眉页脚
+        # Remove headers and footers
         text = re.sub(r'-{5,}\s*Page\s+\d+\s*-{5,}', '', text, flags=re.IGNORECASE)
         text = re.sub(r'HB\s+\d+\s*\n\s*\d{4}', '', text)
         text = re.sub(r'CODING:\s*Words stricken.*?additions\.', '', text)
         
-        # 修复被空格分割的单词
+        # Fix space-separated words
         text = re.sub(r'\b([a-zA-Z])\s+([a-zA-Z])\s+([a-zA-Z])\b', r'\1\2\3', text)
         text = re.sub(r'\b([a-zA-Z])\s+([a-zA-Z])\b', r'\1\2', text)
         
-        # 合并被分行的句子
+        # Merge line-broken sentences
         text = re.sub(r'([a-z,;:])\s*\n\s*([a-z])', r'\1 \2', text)
         
-        # 标准化空白字符
+        # Normalize whitespace characters
         text = re.sub(r'\t', ' ', text)
         text = re.sub(r'[ \t]+', ' ', text)
         text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)
         text = re.sub(r'^\s+', '', text, flags=re.MULTILINE)
         text = re.sub(r'\s+$', '', text, flags=re.MULTILINE)
         
-        print("文本清洗完成")
+        print("Text cleaning complete")
         return text.strip()
 
     def create_uniform_chunks(self, text: str) -> List[str]:
-        """使用统一的RecursiveCharacterTextSplitter进行分块"""
-        print("开始统一分块...")
+        """Use unified RecursiveCharacterTextSplitter for chunking"""
+        print("Starting unified chunking...")
         chunks = self.text_splitter.split_text(text)
         valid_chunks = [chunk.strip() for chunk in chunks if len(chunk.strip()) > 50]
-        print(f"分块完成，生成 {len(valid_chunks)} 个有效块")
+        print(f"Chunking complete, generated {len(valid_chunks)} valid chunks")
         return valid_chunks
     
     def process_document(self, text_content: str, file_path: str) -> str:
-        """处理文档的完整流程：清洗 → 分类 → 建图 → 分块 → 向量化"""
-        print(f"\n开始处理文档: {file_path}")
+        """Complete document processing workflow: clean → classify → build graph → chunk → vectorize"""
+        print(f"\nStarting document processing: {file_path}")
         
-        # 步骤1: 清洗文本
+        # Step 1: Clean text
         cleaned_text = self.clean_text(text_content)
         
-        # 步骤2: 使用大模型识别管辖区和文档类型
-        print("使用大模型进行文档分类...")
+        # Step 2: Use large model to identify jurisdiction and document type
+        print("Using large model for document classification...")
         classification = self.classifier.classify_document(cleaned_text, file_path)
         
-        print(f"分类结果:")
-        print(f"  - 管辖区: {classification.get('jurisdiction_code')} ({classification.get('jurisdiction_name')})")
-        print(f"  - 层级: {classification.get('jurisdiction_level')}")
-        print(f"  - 父级: {classification.get('parent_jurisdiction')}")
-        print(f"  - 类型: {classification.get('document_type')}")
-        print(f"  - 置信度: {classification.get('confidence', 0):.2f}")
+        print(f"Classification results:")
+        print(f"  - Jurisdiction: {classification.get('jurisdiction_code')} ({classification.get('jurisdiction_name')})")
+        print(f"  - Level: {classification.get('jurisdiction_level')}")
+        print(f"  - Parent: {classification.get('parent_jurisdiction')}")
+        print(f"  - Type: {classification.get('document_type')}")
+        print(f"  - Confidence: {classification.get('confidence', 0):.2f}")
         
         jurisdiction_code = classification.get('jurisdiction_code')
         document_type = classification.get('document_type', '').lower()
         
-        # 对于术语表等参考文档，如果管辖区为空或无效，自动归类到reference
+        # For reference documents like glossaries, if jurisdiction is empty or invalid, auto-classify to reference
         if (not jurisdiction_code or jurisdiction_code == "None" or 
             'terminology' in document_type or 'reference' in document_type or
             classification.get('jurisdiction_level') == 'reference'):
-            print("检测到参考文档/术语表，自动归类到reference管辖区")
+            print("Detected reference document/glossary, auto-classifying to reference jurisdiction")
             classification['jurisdiction_code'] = 'reference'
             classification['jurisdiction_name'] = 'Reference Documents'
             classification['jurisdiction_level'] = 'reference'
             classification['parent_jurisdiction'] = None
 
-        # 步骤3: 确保管辖区节点存在（动态创建）
+        # Step 3: Ensure jurisdiction node exists (dynamic creation)
         jurisdiction_id = self.ensure_jurisdiction_exists(classification)
         
-        # 步骤4: 生成文档ID和创建文档对象
+        # Step 4: Generate document ID and create document object
         doc_id = hashlib.md5(f"{file_path}_{cleaned_text[:100]}".encode()).hexdigest()[:12]
         
         title = classification.get("title", Path(file_path).stem)
@@ -514,12 +514,12 @@ class DynamicLegalGraphRAG:
             }
         )
         
-        # 步骤5: 统一分块
+        # Step 5: Unified chunking
         document.chunks = self.create_uniform_chunks(cleaned_text)
-        print(f"生成 {len(document.chunks)} 个文档块")
+        print(f"Generated {len(document.chunks)} document chunks")
         
-        # 步骤6: 向量化
-        print("开始向量化...")
+        # Step 6: Vectorization
+        print("Starting vectorization...")
         if document.chunks:
             chunk_embeddings = []
             for i, chunk in enumerate(document.chunks):
@@ -527,24 +527,24 @@ class DynamicLegalGraphRAG:
                 chunk_embeddings.append(embedding)
                 
                 if (i + 1) % 10 == 0:
-                    print(f"已完成 {i + 1}/{len(document.chunks)} 个块的向量化")
+                    print(f"Completed vectorization of {i + 1}/{len(document.chunks)} chunks")
             
             document.chunk_embeddings = np.array(chunk_embeddings)
             self.document_embeddings[doc_id] = document.chunk_embeddings
         
-        # 步骤7: 添加到图数据结构
+        # Step 7: Add to graph data structure
         self.documents[doc_id] = document
         self.jurisdictions[jurisdiction_id].document_ids.append(doc_id)
         
         self.graph.add_node(doc_id, node_type="document", data=document)
         self.graph.add_edge(jurisdiction_id, doc_id, relationship="contains")
         
-        print(f"文档处理完成: {title} -> 管辖区: {jurisdiction_id}")
+        print(f"Document processing complete: {title} -> Jurisdiction: {jurisdiction_id}")
         return doc_id
     
     def build_from_directory(self, directory_path: str):
-        """从目录批量处理文档"""
-        print(f"开始从目录加载文档: {directory_path}")
+        """Batch process documents from directory"""
+        print(f"Starting document loading from directory: {directory_path}")
         
         loader = DirectoryLoader(
             directory_path,
@@ -555,31 +555,31 @@ class DynamicLegalGraphRAG:
         )
         
         documents = loader.load()
-        print(f"找到 {len(documents)} 个文档文件")
+        print(f"Found {len(documents)} document files")
         
         processed_docs = []
         for i, doc in enumerate(documents, 1):
-            print(f"\n处理进度: {i}/{len(documents)}")
+            print(f"\nProcessing progress: {i}/{len(documents)}")
             try:
                 doc_id = self.process_document(doc.page_content, doc.metadata.get('source', ''))
                 processed_docs.append(doc_id)
-                time.sleep(1)  # 避免API调用过快
+                time.sleep(1)  # Avoid API calls too fast
                 
             except Exception as e:
-                print(f"处理文档失败: {doc.metadata.get('source', 'Unknown')}")
-                print(f"错误: {e}")
+                print(f"Document processing failed: {doc.metadata.get('source', 'Unknown')}")
+                print(f"Error: {e}")
                 continue
         
-        print(f"\n批量处理完成，成功处理 {len(processed_docs)} 个文档")
+        print(f"\nBatch processing complete, successfully processed {len(processed_docs)} documents")
         
-        # 构建文档间关系
-        print("构建文档关系...")
+        # Build document relationships
+        print("Building document relationships...")
         self.build_document_relationships()
         
         return processed_docs
     
     def build_document_relationships(self):
-        """构建文档间的关系"""
+        """Build relationships between documents"""
         doc_list = list(self.documents.values())
         
         for doc in doc_list:
@@ -589,34 +589,34 @@ class DynamicLegalGraphRAG:
                 if other_doc.id == doc.id:
                     continue
                 
-                # 检查标题引用
+                # Check title references
                 if doc.title in other_doc.content or other_doc.title in doc.content:
                     related_ids.append(other_doc.id)
                 
-                # 检查法案编号引用
+                # Check bill number references
                 if (doc.metadata.get('bill_number') and 
                     doc.metadata['bill_number'] in other_doc.content):
                     related_ids.append(other_doc.id)
             
             doc.related_document_ids = related_ids
             
-            # 在图中添加关系边
+            # Add relationship edges to graph
             for related_id in related_ids:
                 self.graph.add_edge(doc.id, related_id, relationship="references")
 
     def search(self, query: str, jurisdiction_id: Optional[str] = None, 
                top_k: int = 5) -> List[Tuple[str, float, Dict]]:
-        """搜索相关法律文档"""
+        """Search relevant legal documents"""
         query_embedding = self.embedding_model.embed_query(query)
         query_embedding = np.array(query_embedding).reshape(1, -1)
         
-        # 确定搜索范围
+        # Determine search scope
         if jurisdiction_id:
             applicable_doc_ids = self.get_applicable_laws(jurisdiction_id)
         else:
             applicable_doc_ids = list(self.documents.keys())
         
-        # 计算相似度
+        # Calculate similarity
         results = []
         for doc_id in applicable_doc_ids:
             if doc_id not in self.document_embeddings:
@@ -645,16 +645,16 @@ class DynamicLegalGraphRAG:
         return results[:top_k]
     
     def get_applicable_laws(self, jurisdiction_id: str) -> List[str]:
-        """获取适用于特定管辖区的所有法律"""
+        """Get all laws applicable to a specific jurisdiction"""
         applicable_doc_ids = set()
         
         if jurisdiction_id not in self.jurisdictions:
             return []
         
-        # 获取当前管辖区的文档
+        # Get documents from current jurisdiction
         applicable_doc_ids.update(self.jurisdictions[jurisdiction_id].document_ids)
         
-        # 递归获取父管辖区的文档
+        # Recursively get documents from parent jurisdictions
         current_id = jurisdiction_id
         visited = set()
         
@@ -671,20 +671,20 @@ class DynamicLegalGraphRAG:
         return list(applicable_doc_ids)
 
     def visualize_jurisdiction_creation_stats(self):
-        """显示管辖区创建统计"""
+        """Display jurisdiction creation statistics"""
         base_nodes = [j for j in self.jurisdictions.values() 
                      if j.metadata.get("is_root_node", False)]
         auto_created = [j for j in self.jurisdictions.values() 
                        if j.metadata.get("auto_created", False)]
         
-        print(f"\n=== 管辖区创建统计 ===")
-        print(f"基础根节点: {len(base_nodes)} 个")
+        print(f"\n=== Jurisdiction Creation Statistics ===")
+        print(f"Base root nodes: {len(base_nodes)} nodes")
         for node in base_nodes:
             child_count = len(node.children_ids)
             doc_count = len(node.document_ids)
-            print(f"  - {node.name}: {child_count} 个子级, {doc_count} 个文档")
+            print(f"  - {node.name}: {child_count} children, {doc_count} documents")
         
-        print(f"\n动态创建节点: {len(auto_created)} 个")
+        print(f"\nDynamically created nodes: {len(auto_created)} nodes")
         creation_types = {}
         for node in auto_created:
             node_type = node.metadata.get("type", "unknown")
@@ -696,16 +696,16 @@ class DynamicLegalGraphRAG:
             print(f"  - {node.name} [{node.level.value}] -> {parent_name}")
         
         if creation_types:
-            print(f"\n创建类型分布:")
+            print(f"\nCreation type distribution:")
             for creation_type, count in creation_types.items():
-                print(f"  - {creation_type}: {count} 个")
+                print(f"  - {creation_type}: {count} nodes")
 
     def save(self, base_path: str = "./legal_graph_db"):
-        """保存图谱数据 - 仅使用JSON和Pickle格式"""
+        """Save graph data - using only JSON and Pickle formats"""
         base_path = Path(base_path)
         base_path.mkdir(exist_ok=True)
         
-        # 保存管辖区结构
+        # Save jurisdiction structure
         jurisdictions_data = {
             jur_id: jur.to_dict() 
             for jur_id, jur in self.jurisdictions.items()
@@ -713,7 +713,7 @@ class DynamicLegalGraphRAG:
         with open(base_path / "jurisdictions.json", 'w', encoding='utf-8') as f:
             json.dump(jurisdictions_data, f, ensure_ascii=False, indent=2)
         
-        # 保存文档数据
+        # Save document data
         documents_data = {
             doc_id: doc.to_dict()
             for doc_id, doc in self.documents.items()
@@ -721,7 +721,7 @@ class DynamicLegalGraphRAG:
         with open(base_path / "documents.json", 'w', encoding='utf-8') as f:
             json.dump(documents_data, f, ensure_ascii=False, indent=2)
         
-        # 保存图结构
+        # Save graph structure
         graph_data = {
             'nodes': list(self.graph.nodes()),
             'edges': [(u, v, data) for u, v, data in self.graph.edges(data=True)]
@@ -729,11 +729,11 @@ class DynamicLegalGraphRAG:
         with open(base_path / "graph_structure.json", 'w', encoding='utf-8') as f:
             json.dump(graph_data, f, ensure_ascii=False, indent=2)
         
-        # 保存向量嵌入 - 使用Pickle
+        # Save vector embeddings - using Pickle
         with open(base_path / "embeddings.pkl", 'wb') as f:
             pickle.dump(self.document_embeddings, f)
         
-        # 保存配置信息
+        # Save configuration information
         config_data = {
             "embedding_model": "BAAI/bge-base-en-v1.5",
             "max_chunk_size": self.max_chunk_size,
@@ -743,14 +743,14 @@ class DynamicLegalGraphRAG:
         with open(base_path / "config.json", 'w', encoding='utf-8') as f:
             json.dump(config_data, f, indent=2)
         
-        print(f"图谱数据已保存到: {base_path}")
-        print("存储格式: JSON (元数据) + Pickle (向量嵌入)")
+        print(f"Graph data saved to: {base_path}")
+        print("Storage format: JSON (metadata) + Pickle (vector embeddings)")
 
     def load(self, base_path: str = "./legal_graph_db"):
-        """加载图谱数据"""
+        """Load graph data"""
         base_path = Path(base_path)
         
-        # 加载配置
+        # Load configuration
         config_path = base_path / "config.json"
         if config_path.exists():
             with open(config_path, 'r', encoding='utf-8') as f:
@@ -758,7 +758,7 @@ class DynamicLegalGraphRAG:
             self.max_chunk_size = config.get("max_chunk_size", 800)
             self.overlap_size = config.get("overlap_size", 100)
         
-        # 加载管辖区结构
+        # Load jurisdiction structure
         with open(base_path / "jurisdictions.json", 'r', encoding='utf-8') as f:
             jurisdictions_data = json.load(f)
         
@@ -775,7 +775,7 @@ class DynamicLegalGraphRAG:
             )
             self.jurisdictions[jur_id] = jur
         
-        # 加载文档数据
+        # Load document data
         with open(base_path / "documents.json", 'r', encoding='utf-8') as f:
             documents_data = json.load(f)
         
@@ -793,7 +793,7 @@ class DynamicLegalGraphRAG:
             )
             self.documents[doc_id] = doc
         
-        # 加载图结构
+        # Load graph structure
         with open(base_path / "graph_structure.json", 'r', encoding='utf-8') as f:
             graph_data = json.load(f)
         
@@ -809,23 +809,23 @@ class DynamicLegalGraphRAG:
         for u, v, data in graph_data['edges']:
             self.graph.add_edge(u, v, **data)
         
-        # 加载向量嵌入
+        # Load vector embeddings
         with open(base_path / "embeddings.pkl", 'rb') as f:
             self.document_embeddings = pickle.load(f)
         
-        print(f"图谱数据已从 {base_path} 加载")
+        print(f"Graph data loaded from {base_path}")
 
     def visualize_graph_stats(self):
-        """可视化图谱统计信息"""
-        print("\n=== 法律图谱统计信息 ===")
-        print(f"管辖区节点数: {len(self.jurisdictions)}")
-        print(f"文档节点数: {len(self.documents)}")
-        print(f"图中总节点数: {self.graph.number_of_nodes()}")
-        print(f"图中总边数: {self.graph.number_of_edges()}")
-        print("存储格式: JSON (元数据) + Pickle (向量嵌入)")
+        """Visualize graph statistics"""
+        print("\n=== Legal Graph Statistics ===")
+        print(f"Jurisdiction nodes: {len(self.jurisdictions)}")
+        print(f"Document nodes: {len(self.documents)}")
+        print(f"Total nodes in graph: {self.graph.number_of_nodes()}")
+        print(f"Total edges in graph: {self.graph.number_of_edges()}")
+        print("Storage format: JSON (metadata) + Pickle (vector embeddings)")
         
-        print("\n=== 法律体系结构 ===")
-        # 显示各体系结构
+        print("\n=== Legal System Structure ===")
+        # Display system structures
         systems = {"reference": [], "eu": [], "usa": [], "other": []}
         
         for jur_id, jur in self.jurisdictions.items():
@@ -843,56 +843,56 @@ class DynamicLegalGraphRAG:
                 continue
                 
             system_display_names = {
-                "reference": "参考文档体系",
-                "eu": "欧盟法律体系", 
-                "usa": "美国法律体系",
-                "other": "其他管辖区体系"
+                "reference": "Reference Document System",
+                "eu": "European Union Legal System", 
+                "usa": "United States Legal System",
+                "other": "Other Jurisdiction Systems"
             }
             
             print(f"\n{system_display_names.get(system_name, system_name)}:")
             
-            # 构建树形显示
+            # Build tree display
             def print_tree(jur_id, level=1):
                 if jur_id not in self.jurisdictions:
                     return
                 jur = self.jurisdictions[jur_id]
                 doc_count = len(jur.document_ids)
                 indent = "  " * level
-                doc_info = f" ({doc_count} 个文档)" if doc_count > 0 else ""
-                auto_flag = " [自动创建]" if jur.metadata.get("auto_created") else ""
+                doc_info = f" ({doc_count} documents)" if doc_count > 0 else ""
+                auto_flag = " [auto-created]" if jur.metadata.get("auto_created") else ""
                 print(f"{indent}├─ {jur.name} [{jur.level.value}]{doc_info}{auto_flag}")
                 
                 for child_id in jur.children_ids:
                     print_tree(child_id, level + 1)
             
-            # 找出该体系的根节点
+            # Find root nodes for the system
             if system_name in ["reference", "eu", "usa"]:
                 print_tree(system_name)
             else:
-                # 显示其他体系的根节点
+                # Display root nodes of other systems
                 root_nodes = [j for j in jurs if j.parent_id is None or j.parent_id not in self.jurisdictions]
                 for root in root_nodes:
                     print_tree(root.id)
         
-        print("\n=== 文档类型分布 ===")
+        print("\n=== Document Type Distribution ===")
         doc_types = {}
         for doc in self.documents.values():
             doc_type = doc.document_type
             doc_types[doc_type] = doc_types.get(doc_type, 0) + 1
         
         for doc_type, count in sorted(doc_types.items(), key=lambda x: x[1], reverse=True):
-            print(f"{doc_type}: {count} 个文档")
+            print(f"{doc_type}: {count} documents")
 
 
 def build_dynamic_legal_graph_rag(knowledge_dir: str = "knowledge",
                                  qwen_api_url: str = None,
                                  qwen_api_key: str = None):
-    """构建支持动态管辖区扩展的法律图谱RAG系统"""
+    """Build Legal Graph RAG system supporting dynamic jurisdiction expansion"""
     
-    print("=== 构建动态扩展法律图谱RAG系统 ===")
-    print("特性: 自动识别和创建新管辖区")
+    print("=== Building Dynamic Legal Graph RAG System ===")
+    print("Feature: Automatic recognition and creation of new jurisdictions")
     
-    # 使用动态扩展版本
+    # Use dynamic expansion version
     graph_rag = DynamicLegalGraphRAG(
         embedding_model_name="BAAI/bge-base-en-v1.5",
         max_chunk_size=300,
@@ -903,37 +903,37 @@ def build_dynamic_legal_graph_rag(knowledge_dir: str = "knowledge",
     
     processed_docs = graph_rag.build_from_directory(knowledge_dir)
     
-    # 显示统计信息
+    # Display statistics
     graph_rag.visualize_graph_stats()
     graph_rag.visualize_jurisdiction_creation_stats()
     
-    # 保存图谱
+    # Save graph
     graph_rag.save("./dynamic_legal_graph_db")
     
-    print(f"\n=== 动态法律图谱RAG系统构建完成！处理了 {len(processed_docs)} 个文档 ===")
+    print(f"\n=== Dynamic Legal Graph RAG System Build Complete! Processed {len(processed_docs)} documents ===")
     
     return graph_rag
 
 
 def main():
-    """主函数 - 构建动态Graph RAG知识库"""
+    """Main function - Build dynamic Graph RAG knowledge base"""
     knowledge_dir = "knowledge"
     qwen_api_url = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
     qwen_api_key = None
     
-    print("=== 动态Graph RAG 知识库构建工具 ===")
-    print(f"知识库目录: {knowledge_dir}")
-    print(f"API地址: {qwen_api_url}")
-    print("存储格式: JSON + Pickle")
-    print("特性: 动态管辖区扩展")
+    print("=== Dynamic Graph RAG Knowledge Base Builder ===")
+    print(f"Knowledge base directory: {knowledge_dir}")
+    print(f"API URL: {qwen_api_url}")
+    print("Storage format: JSON + Pickle")
+    print("Feature: Dynamic jurisdiction expansion")
     
-    # 检查知识库目录是否存在
+    # Check if knowledge base directory exists
     if not Path(knowledge_dir).exists():
-        print(f"错误: 知识库目录 '{knowledge_dir}' 不存在")
-        print(f"请创建目录并放入txt文档文件")
+        print(f"Error: Knowledge base directory '{knowledge_dir}' does not exist")
+        print(f"Please create directory and add txt document files")
         return
     
-    # 构建动态Graph RAG知识库
+    # Build dynamic Graph RAG knowledge base
     try:
         graph_rag = build_dynamic_legal_graph_rag(
             knowledge_dir=knowledge_dir,
@@ -941,17 +941,17 @@ def main():
             qwen_api_key=qwen_api_key
         )
         
-        print("\n=== 动态知识库构建完成 ===")
-        print("文件保存位置: ./dynamic_legal_graph_db/")
-        print("包含文件:")
-        print("  - jurisdictions.json (管辖区信息)")
-        print("  - documents.json (文档元数据)")  
-        print("  - graph_structure.json (图结构)")
-        print("  - embeddings.pkl (向量嵌入)")
-        print("  - config.json (配置信息)")
+        print("\n=== Dynamic Knowledge Base Build Complete ===")
+        print("Files saved to: ./dynamic_legal_graph_db/")
+        print("Included files:")
+        print("  - jurisdictions.json (jurisdiction information)")
+        print("  - documents.json (document metadata)")  
+        print("  - graph_structure.json (graph structure)")
+        print("  - embeddings.pkl (vector embeddings)")
+        print("  - config.json (configuration information)")
         
     except Exception as e:
-        print(f"构建过程中出现错误: {e}")
+        print(f"Error occurred during build process: {e}")
         import traceback
         traceback.print_exc()
 

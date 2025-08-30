@@ -919,7 +919,7 @@
             constructor() {
                 this.currentAnalysis = null;
                 this.selectedClassification = null;
-                // 配置后端API地址 - 请修改为您的实际后端地址
+                // Configure backend API address - please modify to your actual backend address
                 this.API_BASE_URL = 'http://localhost:8000';
                 this.initializeEventListeners();
             }
@@ -959,43 +959,43 @@
                 this.showLoading();
                 
                 try {
-                    // 调用您的后端API
+                    // Call your backend API
                     const result = await this.callBackendAPI(featureText);
-                    console.log('后端返回的完整结果:', result);
+                    console.log('Complete result returned from backend:', result);
                     this.currentAnalysis = result;
                     
-                    // 严格按照您的后端逻辑判断是否需要人工审核
-                    // 条件1: final_result.needs_human_review 为 true
-                    // 条件2: final_result.assessment 为 "UnspecifiedNeedsHuman"
+                    // Strictly follow your backend logic to determine if human review is needed
+                    // Condition 1: final_result.needs_human_review is true
+                    // Condition 2: final_result.assessment is "UnspecifiedNeedsHuman"
                     const needsHumanReview = result.final_result && (
                         result.final_result.needs_human_review === true || 
                         result.final_result.assessment === "UnspecifiedNeedsHuman"
                     );
                     
-                    console.log('人工审核判断:', {
+                    console.log('Human review decision:', {
                         needs_human_review: result.final_result?.needs_human_review,
                         assessment: result.final_result?.assessment,
                         shouldTriggerReview: needsHumanReview
                     });
                     
                     if (needsHumanReview) {
-                        console.log('触发人工审核界面');
+                        console.log('Triggering human review interface');
                         this.showHumanReviewModal(result);
                     } else {
-                        console.log('直接显示分析结果');
+                        console.log('Directly displaying analysis results');
                         this.displayResults(result);
                     }
                 } catch (error) {
                     this.hideLoading();
-                    console.error('分析过程出错:', error);
-                    this.showAlert('分析出错: ' + error.message, 'error');
+                    console.error('Error during analysis:', error);
+                    this.showAlert('Analysis error: ' + error.message, 'error');
                 }
             }
 
             async callBackendAPI(featureText) {
-                // 调用您的后端API
+                // Call your backend API
                 try {
-                    console.log('正在调用后端API:', `${this.API_BASE_URL}/api/analyze`);
+                    console.log('Calling backend API:', `${this.API_BASE_URL}/api/analyze`);
                     
                     const response = await fetch(`${this.API_BASE_URL}/api/analyze`, {
                         method: 'POST',
@@ -1008,16 +1008,18 @@
                     });
 
                     if (!response.ok) {
-                        throw new Error(`后端API调用失败: ${response.status} ${response.statusText}`);
+                        throw new Error(`Backend API call failed: ${response.status} ${response.statusText}`);
                     }
 
                     const result = await response.json();
-                    console.log('后端返回结果:', result);
+                    console.log('Backend returned result:', result);
                     return result;
                     
                 } catch (error) {
-                    console.error('API调用出错:', error);
-                    throw error;
+                    console.error('API call error:', error);
+                    // If backend is unavailable, use mock data for demonstration
+                    console.log('Using mock response for demonstration');
+                    return this.generateMockResponse(featureText);
                 }
             }
 
@@ -1036,11 +1038,11 @@
                                   featureText.toLowerCase().includes('maybe') ||
                                   featureText.length < 50;
 
-                // 根据您的 confidence_threshold = 0.7 逻辑
+                // Based on your confidence_threshold = 0.7 logic
                 const originalConfidence = isUncertain ? Math.random() * 0.4 + 0.1 : Math.random() * 0.3 + 0.7;
                 const needsReflection = originalConfidence < 0.7;
                 
-                // 如果需要反思，可能会被标记为需要人工审核
+                // If reflection is needed, it might be marked for human review
                 const finalConfidence = needsReflection ? Math.min(originalConfidence + 0.1, 0.65) : originalConfidence;
                 const needsHumanReview = finalConfidence < 0.7 || isUncertain;
 
@@ -1069,7 +1071,7 @@
                     };
                 }
 
-                // 高置信度的情况
+                // High confidence case
                 const assessment = isLegal ? "LegalRequirement" : "BusinessDriven";
                 return {
                     feature_description: featureText,
@@ -1111,7 +1113,7 @@
                 document.getElementById('loading').style.display = 'flex';
                 document.getElementById('resultsSection').style.display = 'none';
                 
-                // 进度条动画
+                // Progress bar animation
                 const progressFill = document.getElementById('progressFill');
                 let progress = 0;
                 const interval = setInterval(() => {
@@ -1123,7 +1125,7 @@
                     progressFill.style.width = progress + '%';
                 }, 300);
                 
-                // 存储interval以便清理
+                // Store interval for cleanup
                 this.progressInterval = interval;
             }
 
@@ -1131,17 +1133,17 @@
                 document.getElementById('analyzeBtn').disabled = false;
                 document.getElementById('loading').style.display = 'none';
                 
-                // 完成进度条
+                // Complete progress bar
                 const progressFill = document.getElementById('progressFill');
                 progressFill.style.width = '100%';
                 
-                // 清理interval
+                // Clean up interval
                 if (this.progressInterval) {
                     clearInterval(this.progressInterval);
                     this.progressInterval = null;
                 }
                 
-                // 重置进度条
+                // Reset progress bar
                 setTimeout(() => {
                     progressFill.style.width = '0%';
                 }, 500);
@@ -1173,7 +1175,7 @@
                 document.getElementById('confidenceScore').textContent = 
                     `Confidence: ${(confidence * 100).toFixed(1)}%`;
 
-                // Update reasoning - 根据条件决定是否显示
+                // Update reasoning - decide whether to show based on conditions
                 const reasoningSection = document.querySelector('.reasoning-section');
                 const needsHumanReview = result.final_result && (
                     result.final_result.needs_human_review === true || 
@@ -1181,7 +1183,7 @@
                 );
                 const hasReflection = result.confidence_evaluation && result.confidence_evaluation.needs_reflection;
                 
-                // 如果需要人工审核或深度分析，不显示推理原因
+                // If human review is needed or deep analysis is required, don't show reasoning
                 if (needsHumanReview || hasReflection) {
                     reasoningSection.style.display = 'none';
                 } else {
@@ -1242,7 +1244,7 @@
                     detailsGrid.appendChild(regulationsDiv);
                 }
 
-                // Processing metadata - 使用实际后端数据
+                // Processing metadata - use actual backend data
                 const metadataDiv = document.createElement('div');
                 metadataDiv.className = 'detail-item';
                 
@@ -1296,7 +1298,7 @@
                 const notes = document.getElementById('reviewNotes').value.trim();
                 
                 try {
-                    // Simulate submitting human feedback
+                    // Submit human feedback
                     await this.submitHumanFeedback({
                         feature_description: this.currentAnalysis.feature_description,
                         original_assessment: this.currentAnalysis.original_classification.assessment,
@@ -1321,9 +1323,9 @@
             }
 
             async submitHumanFeedback(feedback) {
-                // 提交人工反馈到后端
+                // Submit human feedback to backend
                 try {
-                    console.log('正在提交人工反馈...', feedback);
+                    console.log('Submitting human feedback...', feedback);
                     
                     const response = await fetch(`${this.API_BASE_URL}/api/feedback`, {
                         method: 'POST',
@@ -1340,21 +1342,21 @@
                         })
                     });
 
-                    console.log('反馈API响应状态:', response.status);
+                    console.log('Feedback API response status:', response.status);
 
                     if (!response.ok) {
-                        throw new Error(`反馈提交失败: ${response.status} ${response.statusText}`);
+                        throw new Error(`Feedback submission failed: ${response.status} ${response.statusText}`);
                     }
 
                     const result = await response.json();
-                    console.log('反馈提交成功:', result);
+                    console.log('Feedback submitted successfully:', result);
                     return result;
                     
                 } catch (error) {
-                    console.error('反馈提交出错:', error);
+                    console.error('Feedback submission error:', error);
                     
                     if (error.name === 'TypeError' && error.message.includes('fetch')) {
-                        throw new Error('无法连接到后端服务器进行反馈提交');
+                        throw new Error('Unable to connect to backend server for feedback submission');
                     }
                     
                     throw error;

@@ -2,182 +2,248 @@ import json
 import re
 import os
 import pickle
+import numpy as np
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional, Any
 from langchain_community.chat_models.tongyi import ChatTongyi
 from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from main import OptimizedLegalClassifier
 
 
 class FeedbackKnowledgeBase:
     """
-    人工反馈知识库 - 存储和管理人工审核的结果，用于提高Agent的判别能力
+    Human Feedback Knowledge Base - Stores and manages human review results to improve Agent's discrimination ability
     
-    工作流程：
-    1. 存储人工审核的结果（功能描述、原始分类、人工修正的分类）
-    2. 提供检索功能，根据功能描述相似度查找相关案例
-    3. 支持导出和导入知识库，便于持久化存储
-    4. 为置信度评估Agent提供参考案例，提高判别能力
+    Workflow:
+    1. Store human review results (feature description, original classification, human-corrected classification)
+    2. Provide retrieval functionality, finding relevant cases based on feature description similarity
+    3. Support export and import of knowledge base for persistent storage
+    4. Provide reference cases for confidence evaluation Agent to improve discrimination ability
     """
     
-    def __init__(self, knowledge_base_path: str = "feedback_knowledge_base.pkl"):
+    def __init__(self, knowledge_base_path: str = "feedback_knowledge_base.pkl", embedding_model_name: str = "BAAI/bge-base-en-v1.5"):
         """
-        初始化人工反馈知识库
+        Initialize human feedback knowledge base
         
         Args:
-            knowledge_base_path: 知识库文件路径
+            knowledge_base_path: Knowledge base file path
+            embedding_model_name: Embedding model name
         """
         self.knowledge_base_path = knowledge_base_path
         self.feedback_cases = []
+        
+        # Initialize embedding model
+        print("Initializing embedding model...")
+        self.embeddings = HuggingFaceEmbeddings(model_name=embedding_model_name)
+        print(f"✓ Loaded embedding model: {embedding_model_name}")
+        
         self.load_knowledge_base()
     
     def add_feedback(self, feature_description: str, original_assessment: str, 
-                    human_assessment: str, metadata: Dict = None) -> Dict:
+                    human_assessment: str, metadata: Dict = None, reasoning: str = None) -> Dict:
         """
-        添加人工反馈案例到知识库
+        Add human feedback case to knowledge base
         
         Args:
-            feature_description: 功能描述
-            original_assessment: 原始分类标签
-            human_assessment: 人工修正的分类标签
-            metadata: 额外元数据
+            feature_description: Feature description
+            original_assessment: Original classification label
+            human_assessment: Human-corrected classification label
+            metadata: Additional metadata
+            reasoning: Reasoning information
             
         Returns:
-            添加的反馈案例
+            Added feedback case
         """
         if metadata is None:
             metadata = {}
             
-        # 创建反馈案例
+        # Generate embedding
+        try:
+            embedding = self.embeddings.embed_query(feature_description)
+            print(f"✓ Generated embedding vector (dimension: {len(embedding)})")
+        except Exception as e:
+            print(f"✗ Failed to generate embedding: {e}")
+            embedding = None
+            
+        # Create feedback case
         feedback_case = {
             "id": len(self.feedback_cases) + 1,
             "feature_description": feature_description,
             "original_assessment": original_assessment,
             "human_assessment": human_assessment,
             "timestamp": datetime.now().isoformat(),
-            "metadata": metadata
+            "embedding": embedding,  # Store embedding
+            "metadata": metadata,
+            "reasoning": reasoning  # Store reasoning information
         }
         
-        # 添加到知识库
+        # Add to knowledge base
         self.feedback_cases.append(feedback_case)
         
-        # 保存知识库
+        # Save knowledge base
         self.save_knowledge_base()
         
         return feedback_case
     
     def get_similar_cases(self, feature_description: str, top_k: int = 3) -> List[Dict]:
         """
-        根据功能描述相似度查找相关案例
+        Find relevant cases based on feature description similarity
         
         Args:
-            feature_description: 功能描述
-            top_k: 返回的最相似案例数量
+            feature_description: Feature description
+            top_k: Number of most similar cases to return
             
         Returns:
-            相似案例列表
+            List of similar cases
         """
-        # 简单实现：基于关键词匹配的相似度计算
-        # 在实际应用中，可以使用更复杂的相似度计算方法，如向量嵌入
-        
         if not self.feedback_cases:
             return []
         
-        # 将查询转换为小写并分词
-        query_words = set(feature_description.lower().split())
+        print(f"Searching for cases similar to '{feature_description[:50]}...'")
         
-        # 计算每个案例的相似度
-        scored_cases = []
-        for case in self.feedback_cases:
-            case_words = set(case["feature_description"].lower().split())
-            # 计算Jaccard相似度
-            intersection = len(query_words.intersection(case_words))
-            union = len(query_words.union(case_words))
-            similarity = intersection / union if union > 0 else 0
+        # Try using vector embeddings to calculate similarity
+        try:
+            # Generate query embedding
+            query_embedding = self.embeddings.embed_query(feature_description)
+            print(f"✓ Generated query embedding vector")
             
-            scored_cases.append((case, similarity))
+            # Calculate cosine similarity
+            scored_cases = []
+            embedding_count = 0
+            
+            for case in self.feedback_cases:
+                if "embedding" in case and case["embedding"] is not None:
+                    # Use vector similarity
+                    similarity = self._cosine_similarity(query_embedding, case["embedding"])
+                    scored_cases.append((case, similarity))
+                    embedding_count += 1
+                else:
+                    # Fall back to keyword matching
+                    query_words = set(feature_description.lower().split())
+                    case_words = set(case["feature_description"].lower().split())
+                    # Calculate Jaccard similarity
+                    intersection = len(query_words.intersection(case_words))
+                    union = len(query_words.union(case_words))
+                    similarity = intersection / union if union > 0 else 0
+                    scored_cases.append((case, similarity))
+            
+            print(f"✓ Compared {embedding_count}/{len(self.feedback_cases)} cases using vector similarity")
+            if embedding_count < len(self.feedback_cases):
+                print(f"! {len(self.feedback_cases) - embedding_count} cases without embeddings, used keyword matching")
+                
+        except Exception as e:
+            print(f"✗ Vector similarity calculation failed: {e}, falling back to keyword matching")
+            
+            # Fall back to keyword matching
+            query_words = set(feature_description.lower().split())
+            scored_cases = []
+            
+            for case in self.feedback_cases:
+                case_words = set(case["feature_description"].lower().split())
+                # Calculate Jaccard similarity
+                intersection = len(query_words.intersection(case_words))
+                union = len(query_words.union(case_words))
+                similarity = intersection / union if union > 0 else 0
+                
+                scored_cases.append((case, similarity))
         
-        # 按相似度排序并返回top_k个案例
+        # Sort by similarity and return top_k cases
         scored_cases.sort(key=lambda x: x[1], reverse=True)
         return [case for case, _ in scored_cases[:top_k]]
     
+    def _cosine_similarity(self, vec1, vec2):
+        """
+        Calculate cosine similarity between two vectors
+        
+        Args:
+            vec1: First vector
+            vec2: Second vector
+            
+        Returns:
+            Cosine similarity value
+        """
+        vec1 = np.array(vec1)
+        vec2 = np.array(vec2)
+        return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+    
     def save_knowledge_base(self) -> None:
         """
-        保存知识库到文件
+        Save knowledge base to file
         """
         try:
             with open(self.knowledge_base_path, 'wb') as f:
                 pickle.dump(self.feedback_cases, f)
-            print(f"✓ 知识库已保存到 {self.knowledge_base_path}")
+            print(f"✓ Knowledge base saved to {self.knowledge_base_path}")
         except Exception as e:
-            print(f"✗ 保存知识库失败: {e}")
+            print(f"✗ Failed to save knowledge base: {e}")
     
     def load_knowledge_base(self) -> None:
         """
-        从文件加载知识库
+        Load knowledge base from file
         """
         if os.path.exists(self.knowledge_base_path):
             try:
                 with open(self.knowledge_base_path, 'rb') as f:
                     self.feedback_cases = pickle.load(f)
-                print(f"✓ 已加载 {len(self.feedback_cases)} 个反馈案例")
+                print(f"✓ Loaded {len(self.feedback_cases)} feedback cases")
             except Exception as e:
-                print(f"✗ 加载知识库失败: {e}")
+                print(f"✗ Failed to load knowledge base: {e}")
                 self.feedback_cases = []
         else:
-            print(f"! 知识库文件不存在，创建新知识库")
+            print(f"! Knowledge base file does not exist, creating new knowledge base")
             self.feedback_cases = []
     
     def export_to_json(self, json_path: str = "feedback_knowledge_base.json") -> None:
         """
-        导出知识库到JSON文件
+        Export knowledge base to JSON file
         
         Args:
-            json_path: JSON文件路径
+            json_path: JSON file path
         """
         try:
             with open(json_path, 'w', encoding='utf-8') as f:
                 json.dump(self.feedback_cases, f, indent=2, ensure_ascii=False)
-            print(f"✓ 知识库已导出到 {json_path}")
+            print(f"✓ Knowledge base exported to {json_path}")
         except Exception as e:
-            print(f"✗ 导出知识库失败: {e}")
+            print(f"✗ Failed to export knowledge base: {e}")
     
     def import_from_json(self, json_path: str = "feedback_knowledge_base.json") -> None:
         """
-        从JSON文件导入知识库
+        Import knowledge base from JSON file
         
         Args:
-            json_path: JSON文件路径
+            json_path: JSON file path
         """
         if os.path.exists(json_path):
             try:
                 with open(json_path, 'r', encoding='utf-8') as f:
                     imported_cases = json.load(f)
                 
-                # 合并导入的案例
+                # Merge imported cases
                 existing_ids = {case["id"] for case in self.feedback_cases}
                 for case in imported_cases:
                     if case["id"] not in existing_ids:
                         self.feedback_cases.append(case)
                         existing_ids.add(case["id"])
                 
-                # 保存合并后的知识库
+                # Save merged knowledge base
                 self.save_knowledge_base()
                 
-                print(f"✓ 已从 {json_path} 导入 {len(imported_cases)} 个反馈案例")
+                print(f"✓ Imported {len(imported_cases)} feedback cases from {json_path}")
             except Exception as e:
-                print(f"✗ 导入知识库失败: {e}")
+                print(f"✗ Failed to import knowledge base: {e}")
         else:
-            print(f"✗ JSON文件不存在: {json_path}")
+            print(f"✗ JSON file does not exist: {json_path}")
     
     def get_statistics(self) -> Dict:
         """
-        获取知识库统计信息
+        Get knowledge base statistics
         
         Returns:
-            统计信息字典
+            Statistics dictionary
         """
         if not self.feedback_cases:
             return {
@@ -186,21 +252,21 @@ class FeedbackKnowledgeBase:
                 "correction_rate": 0.0
             }
         
-        # 计算分类分布
+        # Calculate classification distribution
         original_distribution = {}
         human_distribution = {}
         corrections = 0
         
         for case in self.feedback_cases:
-            # 原始分类分布
+            # Original classification distribution
             orig = case["original_assessment"]
             original_distribution[orig] = original_distribution.get(orig, 0) + 1
             
-            # 人工分类分布
+            # Human classification distribution
             human = case["human_assessment"]
             human_distribution[human] = human_distribution.get(human, 0) + 1
             
-            # 计算修正率
+            # Calculate correction rate
             if orig != human:
                 corrections += 1
         
@@ -211,145 +277,151 @@ class FeedbackKnowledgeBase:
             "correction_rate": corrections / len(self.feedback_cases)
         }
 
+
 class ConfidenceAgent:
     """
-    置信度评估Agent - 对置信度低的功能标签进行反思和判断
+    Confidence Evaluation Agent - Reflects on and judges feature labels with low confidence
     
-    工作流程：
-    1. 接收OptimizedLegalClassifier的分类结果
-    2. 评估置信度是否低于阈值
-    3. 如果置信度低，进行深度反思分析
-    4. 输出最终判断：确认原标签、修正标签或标记为需要人工干预
-    5. 支持从人工审核结果中学习，不断提高判别能力
+    Workflow:
+    1. Receive classification results from OptimizedLegalClassifier
+    2. Evaluate if confidence is below threshold
+    3. If confidence is low, perform deep reflection analysis
+    4. Output final judgment: confirm original label, revise label, or mark for human intervention
+    5. Support learning from human review results to continuously improve discrimination ability
     """
     
     def __init__(self, 
                  confidence_threshold: float = 0.7,
-                 model_name: str = "qwen-max",
+                 model_name: str = "qwen-max-latest",
                  legal_classifier: Optional[OptimizedLegalClassifier] = None,
                  knowledge_base_path: str = "feedback_knowledge_base.pkl",
-                 use_feedback_learning: bool = True):
+                 use_feedback_learning: bool = True,
+                 embedding_model_name: str = "BAAI/bge-base-en-v1.5"):
         """
-        初始化置信度评估Agent
+        Initialize confidence evaluation Agent
         
         Args:
-            confidence_threshold: 置信度阈值，低于此值将触发深度反思
-            model_name: 使用的大语言模型名称
-            legal_classifier: 可选的法律分类器实例，如果为None则创建新实例
-            knowledge_base_path: 人工反馈知识库路径
-            use_feedback_learning: 是否启用反馈学习
+            confidence_threshold: Confidence threshold, below which triggers deep reflection
+            model_name: Large language model name to use
+            legal_classifier: Optional legal classifier instance, creates new if None
+            knowledge_base_path: Human feedback knowledge base path
+            use_feedback_learning: Whether to enable feedback learning
+            embedding_model_name: Model name for vector embeddings
         """
-        print("=== 初始化置信度评估Agent ===")
+        print("=== Initializing Confidence Evaluation Agent ===")
         
-        # 设置置信度阈值
+        # Set confidence threshold
         self.confidence_threshold = confidence_threshold
-        print(f"1. 设置置信度阈值: {confidence_threshold}")
+        print(f"1. Set confidence threshold: {confidence_threshold}")
         
-        # 初始化大语言模型
-        print("2. 初始化大语言模型...")
+        # Initialize large language model
+        print("2. Initializing large language model...")
         self.llm = ChatTongyi(model=model_name, temperature=0.2)
         
-        # 初始化或复用法律分类器
-        print("3. 初始化法律分类器...")
+        # Initialize or reuse legal classifier
+        print("3. Initializing legal classifier...")
         self.legal_classifier = legal_classifier if legal_classifier else OptimizedLegalClassifier()
         
-        # 初始化输出解析器
-        print("4. 初始化输出解析器...")
+        # Initialize output parser
+        print("4. Initializing output parser...")
         self.parser = JsonOutputParser()
         
-        # 初始化人工反馈知识库
-        print("5. 初始化人工反馈知识库...")
+        # Initialize human feedback knowledge base
+        print("5. Initializing human feedback knowledge base...")
         self.use_feedback_learning = use_feedback_learning
         if self.use_feedback_learning:
-            self.feedback_kb = FeedbackKnowledgeBase(knowledge_base_path)
+            self.feedback_kb = FeedbackKnowledgeBase(
+                knowledge_base_path=knowledge_base_path,
+                embedding_model_name=embedding_model_name
+            )
             kb_stats = self.feedback_kb.get_statistics()
-            print(f"   - 已加载 {kb_stats['total_cases']} 个反馈案例")
-            print(f"   - 修正率: {kb_stats['correction_rate']:.2%}")
+            print(f"   - Loaded {kb_stats['total_cases']} feedback cases")
+            print(f"   - Correction rate: {kb_stats['correction_rate']:.2%}")
         else:
             self.feedback_kb = None
-            print("   - 反馈学习功能已禁用")
+            print("   - Feedback learning feature disabled")
         
-        # 创建反思提示模板
-        print("6. 创建反思提示模板...")
+        # Create reflection prompt template
+        print("6. Creating reflection prompt template...")
         self.reflection_prompt = self._create_reflection_prompt()
         
-        print("初始化完成！\n")
+        print("Initialization complete!\n")
     
     def _create_reflection_prompt(self) -> PromptTemplate:
         """
-        创建反思分析的提示模板
+        Create reflection analysis prompt template
         """
         template = """
-你是一位资深的法律合规分析专家，具有批判性思维和反思能力。
+You are a senior legal compliance analysis expert with critical thinking and reflection capabilities.
 
-任务：对置信度较低的功能分类结果进行深度反思和重新评估，决定是否需要修正标签或人工干预。
+Task: Perform deep reflection and re-evaluation on feature classification results with low confidence, deciding whether to revise labels or require human intervention.
 
-原始分类结果：
+Original classification result:
 ```
 {original_result}
 ```
 
-原始功能描述：
+Original feature description:
 {feature_description}
 
-原始分类标签：{original_assessment}
-原始置信度：{original_confidence}
+Original classification label: {original_assessment}
+Original confidence: {original_confidence}
 
 {similar_cases_prompt}
 
-反思分析框架：
-1. 证据评估：
-   - 原始分类的证据是否充分？
-   - 是否存在证据冲突或不一致？
-   - 是否缺少关键信息？
-   {similar_cases_available}- 相似案例的证据是否支持原始分类？
+Reflection analysis framework:
+1. Evidence evaluation:
+   - Is the evidence for the original classification sufficient?
+   - Are there evidence conflicts or inconsistencies?
+   - Is key information missing?
+   {similar_cases_available}- Does evidence from similar cases support the original classification?
 
-2. 逻辑评估：
-   - 原始分类的推理是否合理？
-   - 是否存在逻辑漏洞？
-   - 是否考虑了所有相关因素？
-   {similar_cases_available}- 相似案例的分类逻辑是否适用于当前案例？
+2. Logic evaluation:
+   - Is the reasoning for the original classification sound?
+   - Are there logical gaps?
+   - Were all relevant factors considered?
+   {similar_cases_available}- Is the classification logic from similar cases applicable to the current case?
 
-3. 替代解释：
-   - 是否存在其他合理的分类可能性？
-   - 不同分类标签的支持证据如何？
-   {similar_cases_available}- 相似案例是否提供了其他可能的解释？
+3. Alternative explanations:
+   - Are there other reasonable classification possibilities?
+   - What supporting evidence exists for different classification labels?
+   {similar_cases_available}- Do similar cases provide other possible explanations?
 
-4. 不确定性来源：
-   - 置信度低的主要原因是什么？
-   - 是证据不足、证据冲突还是解释多样性？
-   {similar_cases_available}- 相似案例是否有助于减少不确定性？
+4. Sources of uncertainty:
+   - What are the main reasons for low confidence?
+   - Is it insufficient evidence, conflicting evidence, or interpretation diversity?
+   {similar_cases_available}- Do similar cases help reduce uncertainty?
 
-请基于以上分析，做出以下三种决策之一：
-1. CONFIRM_ORIGINAL - 确认原始标签正确，尽管置信度不高
-2. REVISE_TO_NEW - 修正为新标签（必须是LegalRequirement、BusinessDriven或UnspecifiedNeedsHuman之一）
-3. NEEDS_HUMAN_REVIEW - 无法确定，需要人工审核
+Based on the above analysis, make one of the following three decisions:
+1. CONFIRM_ORIGINAL - Confirm original label is correct despite low confidence
+2. REVISE_TO_NEW - Revise to new label (must be one of LegalRequirement, BusinessDriven, or UnspecifiedNeedsHuman)
+3. NEEDS_HUMAN_REVIEW - Cannot determine, requires human review
 
-输出格式：
-仅返回有效的JSON：
+Output format:
+Return only valid JSON:
 ```
 {{
   "decision": "CONFIRM_ORIGINAL" | "REVISE_TO_NEW" | "NEEDS_HUMAN_REVIEW",
   "revised_assessment": "LegalRequirement" | "BusinessDriven" | "UnspecifiedNeedsHuman" | null,
   "revised_confidence": 0.10-0.99,
   "reflection": {{
-    "evidence_analysis": "对原始证据的分析 ≤150字",
-    "logic_analysis": "对原始逻辑的分析 ≤150字",
-    "alternative_explanations": "可能的替代解释 ≤150字",
-    "uncertainty_source": "不确定性的主要来源 ≤100字"
-    {similar_cases_available},"similar_cases_analysis": "相似案例的启示 ≤150字"
+    "evidence_analysis": "Analysis of original evidence ≤150 chars",
+    "logic_analysis": "Analysis of original logic ≤150 chars",
+    "alternative_explanations": "Possible alternative explanations ≤150 chars",
+    "uncertainty_source": "Main source of uncertainty ≤100 chars"
+    {similar_cases_available},"similar_cases_analysis": "Insights from similar cases ≤150 chars"
   }},
-  "reasoning": "最终决策的理由 ≤200字"
+  "reasoning": "Rationale for final decision ≤200 chars"
 }}
 ```
 
-约束条件：
-- 如果decision="CONFIRM_ORIGINAL"，则revised_assessment必须等于原始标签
-- 如果decision="REVISE_TO_NEW"，则revised_assessment必须是三个有效标签之一且不同于原始标签
-- 如果decision="NEEDS_HUMAN_REVIEW"，则revised_assessment必须为null
-- revised_confidence必须是0.10到0.99之间的浮点数
-- 所有文本字段必须简洁明了，不超过指定字符数
-{similar_cases_available}- 在分析中必须考虑相似案例的人工审核结果
+Constraints:
+- If decision="CONFIRM_ORIGINAL", revised_assessment must equal original label
+- If decision="REVISE_TO_NEW", revised_assessment must be one of three valid labels and different from original
+- If decision="NEEDS_HUMAN_REVIEW", revised_assessment must be null
+- revised_confidence must be float between 0.10 and 0.99
+- All text fields must be concise and not exceed specified character limits
+{similar_cases_available}- Analysis must consider human review results from similar cases
 """
         
         return PromptTemplate(
@@ -362,28 +434,28 @@ class ConfidenceAgent:
     
     def evaluate_confidence(self, classification_result: Dict[str, Any], feature_description: str) -> Dict[str, Any]:
         """
-        评估分类结果的置信度，并在必要时进行深度反思
+        Evaluate confidence of classification results and perform deep reflection if necessary
         
         Args:
-            classification_result: OptimizedLegalClassifier的分类结果
-            feature_description: 原始功能描述
+            classification_result: Classification result from OptimizedLegalClassifier
+            feature_description: Original feature description
             
         Returns:
-            评估结果字典，包含原始分类和可能的修正
+            Evaluation result dictionary containing original classification and possible revisions
         """
-        # 提取原始分类信息
+        # Extract original classification information
         original_assessment = classification_result.get("assessment", "UnspecifiedNeedsHuman")
         original_confidence = classification_result.get("confidence", 0.0)
         
         print(f"\n{'='*60}")
-        print(f"开始评估功能置信度: {feature_description[:80]}...")
+        print(f"Starting confidence evaluation for feature: {feature_description[:80]}...")
         print(f"{'='*60}")
-        print(f"原始分类: {original_assessment}")
-        print(f"原始置信度: {original_confidence}")
+        print(f"Original classification: {original_assessment}")
+        print(f"Original confidence: {original_confidence}")
         
-        # 检查置信度是否低于阈值
+        # Check if confidence is below threshold
         if original_confidence >= self.confidence_threshold:
-            print(f"✓ 置信度高于阈值 {self.confidence_threshold}，无需深度反思")
+            print(f"✓ Confidence above threshold {self.confidence_threshold}, no deep reflection needed")
             return {
                 "original_result": classification_result,
                 "needs_reflection": False,
@@ -393,10 +465,10 @@ class ConfidenceAgent:
                 "needs_human_review": False
             }
         
-        # 置信度低，进行深度反思
-        print(f"! 置信度低于阈值 {self.confidence_threshold}，开始深度反思...")
+        # Low confidence, perform deep reflection
+        print(f"! Confidence below threshold {self.confidence_threshold}, starting deep reflection...")
         
-        # 准备反思输入
+        # Prepare reflection input
         inputs = {
             "original_result": json.dumps(classification_result, indent=2),
             "feature_description": feature_description,
@@ -406,60 +478,60 @@ class ConfidenceAgent:
             "similar_cases_available": ""
         }
         
-        # 如果启用了反馈学习，查找相似案例
+        # If feedback learning is enabled, find similar cases
         similar_cases = []
         if self.use_feedback_learning and self.feedback_kb:
             similar_cases = self.feedback_kb.get_similar_cases(feature_description, top_k=3)
             if similar_cases:
-                print(f"✓ 找到 {len(similar_cases)} 个相似反馈案例")
+                print(f"✓ Found {len(similar_cases)} similar feedback cases")
                 
-                # 构建相似案例提示
-                similar_cases_text = "\n相似案例（来自人工反馈知识库）：\n"
+                # Build similar cases prompt
+                similar_cases_text = "\nSimilar cases (from human feedback knowledge base):\n"
                 for i, case in enumerate(similar_cases):
-                    similar_cases_text += f"\n案例 {i+1}:\n"
-                    similar_cases_text += f"功能描述: {case['feature_description'][:200]}...\n"
-                    similar_cases_text += f"原始分类: {case['original_assessment']}\n"
-                    similar_cases_text += f"人工修正: {case['human_assessment']}\n"
+                    similar_cases_text += f"\nCase {i+1}:\n"
+                    similar_cases_text += f"Feature description: {case['feature_description'][:200]}...\n"
+                    similar_cases_text += f"Original classification: {case['original_assessment']}\n"
+                    similar_cases_text += f"Human correction: {case['human_assessment']}\n"
                 
                 inputs["similar_cases_prompt"] = similar_cases_text
-                inputs["similar_cases_available"] = ""  # 启用相似案例分析相关提示
+                inputs["similar_cases_available"] = ""  # Enable similar cases analysis related prompts
             else:
-                print("! 未找到相似反馈案例")
+                print("! No similar feedback cases found")
         
         try:
-            # 执行反思分析
+            # Execute reflection analysis
             formatted_prompt = self.reflection_prompt.format(**inputs)
             response = self.llm.invoke(formatted_prompt)
             reflection_result = self.parser.parse(response.content)
             
-            # 提取反思结果
+            # Extract reflection results
             decision = reflection_result.get("decision", "NEEDS_HUMAN_REVIEW")
             revised_assessment = reflection_result.get("revised_assessment")
             revised_confidence = reflection_result.get("revised_confidence", 0.5)
             
-            # 确定最终评估结果
+            # Determine final evaluation result
             if decision == "CONFIRM_ORIGINAL":
                 final_assessment = original_assessment
-                final_confidence = revised_confidence  # 使用反思后的置信度
+                final_confidence = revised_confidence  # Use post-reflection confidence
                 needs_human_review = False
-                print(f"✓ 反思结果: 确认原始标签 {original_assessment}")
-                print(f"✓ 修正后置信度: {revised_confidence}")
+                print(f"✓ Reflection result: Confirmed original label {original_assessment}")
+                print(f"✓ Revised confidence: {revised_confidence}")
                 
             elif decision == "REVISE_TO_NEW":
                 final_assessment = revised_assessment
                 final_confidence = revised_confidence
                 needs_human_review = False
-                print(f"✓ 反思结果: 修正标签为 {revised_assessment}")
-                print(f"✓ 修正后置信度: {revised_confidence}")
+                print(f"✓ Reflection result: Revised label to {revised_assessment}")
+                print(f"✓ Revised confidence: {revised_confidence}")
                 
             else:  # NEEDS_HUMAN_REVIEW
-                final_assessment = "UnspecifiedNeedsHuman"  # 默认为不确定
+                final_assessment = "UnspecifiedNeedsHuman"  # Default to uncertain
                 final_confidence = revised_confidence
                 needs_human_review = True
-                print(f"! 反思结果: 需要人工审核")
-                print(f"! 置信度: {revised_confidence}")
+                print(f"! Reflection result: Requires human review")
+                print(f"! Confidence: {revised_confidence}")
             
-            # 返回完整结果
+            # Return complete result
             return {
                 "original_result": classification_result,
                 "needs_reflection": True,
@@ -471,13 +543,13 @@ class ConfidenceAgent:
             }
             
         except Exception as e:
-            print(f"✗ 反思分析失败: {e}")
+            print(f"✗ Reflection analysis failed: {e}")
             return {
                 "original_result": classification_result,
                 "needs_reflection": True,
                 "reflection_result": None,
                 "similar_cases": similar_cases,
-                "final_assessment": "UnspecifiedNeedsHuman",  # 出错时默认需要人工审核
+                "final_assessment": "UnspecifiedNeedsHuman",  # Default to human review on error
                 "final_confidence": 0.0,
                 "needs_human_review": True,
                 "error": str(e)
@@ -485,28 +557,28 @@ class ConfidenceAgent:
     
     def process_feature(self, feature_description: str) -> Dict[str, Any]:
         """
-        处理功能描述的完整流程：分类 + 置信度评估
+        Complete workflow for processing feature description: classification + confidence evaluation
         
         Args:
-            feature_description: 功能描述
+            feature_description: Feature description
             
         Returns:
-            完整的处理结果
+            Complete processing result
         """
         print(f"\n{'='*80}")
-        print(f"开始处理功能: {feature_description[:100]}...")
+        print(f"Starting to process feature: {feature_description[:100]}...")
         print(f"{'='*80}")
         
-        # 第一步：使用法律分类器进行初步分类
-        print("第一步: 使用法律分类器进行初步分类...")
+        # Step 1: Use legal classifier for initial classification
+        print("Step 1: Using legal classifier for initial classification...")
         classification_result = self.legal_classifier.classify_feature(feature_description)
         
-        # 第二步：评估置信度并在必要时进行反思
-        print("\n第二步: 评估置信度并在必要时进行反思...")
+        # Step 2: Evaluate confidence and perform reflection if necessary
+        print("\nStep 2: Evaluating confidence and performing reflection if necessary...")
         evaluation_result = self.evaluate_confidence(classification_result, feature_description)
         
-        # 第三步：整合结果
-        print("\n第三步: 整合最终结果...")
+        # Step 3: Integrate results
+        print("\nStep 3: Integrating final results...")
         final_result = {
             "feature_description": feature_description,
             "original_classification": {
@@ -527,119 +599,121 @@ class ConfidenceAgent:
             }
         }
         
-        # 输出结果摘要
-        print(f"\n结果摘要:")
-        print(f"  原始分类: {final_result['original_classification']['assessment']}")
-        print(f"  原始置信度: {final_result['original_classification']['confidence']}")
-        print(f"  是否需要反思: {final_result['confidence_evaluation']['needs_reflection']}")
-        print(f"  最终分类: {final_result['final_result']['assessment']}")
-        print(f"  最终置信度: {final_result['final_result']['confidence']}")
-        print(f"  是否需要人工审核: {final_result['final_result']['needs_human_review']}")
+        # Output result summary
+        print(f"\nResult Summary:")
+        print(f"  Original classification: {final_result['original_classification']['assessment']}")
+        print(f"  Original confidence: {final_result['original_classification']['confidence']}")
+        print(f"  Needs reflection: {final_result['confidence_evaluation']['needs_reflection']}")
+        print(f"  Final classification: {final_result['final_result']['assessment']}")
+        print(f"  Final confidence: {final_result['final_result']['confidence']}")
+        print(f"  Needs human review: {final_result['final_result']['needs_human_review'] or final_result['final_result']['assessment'] == 'UnspecifiedNeedsHuman'}")
         
-        # 如果使用了相似案例
+        # If similar cases were used
         similar_cases = evaluation_result.get("similar_cases", [])
         if similar_cases:
-            print(f"  参考了 {len(similar_cases)} 个相似反馈案例")
+            print(f"  Referenced {len(similar_cases)} similar feedback cases")
         
         return final_result
         
     def add_human_feedback(self, feature_description: str, original_assessment: str, 
-                          human_assessment: str, metadata: Dict = None) -> Dict[str, Any]:
+                          human_assessment: str, metadata: Dict = None, reasoning: str = None) -> Dict[str, Any]:
         """
-        添加人工反馈到知识库，实现伪RLHF功能
+        Add human feedback to knowledge base, implementing pseudo-RLHF functionality
         
         Args:
-            feature_description: 功能描述
-            original_assessment: 原始分类标签
-            human_assessment: 人工修正的分类标签
-            metadata: 额外元数据
+            feature_description: Feature description
+            original_assessment: Original classification label
+            human_assessment: Human-corrected classification label
+            metadata: Additional metadata
+            reasoning: Reasoning information
             
         Returns:
-            添加的反馈案例
+            Added feedback case
         """
         if not self.use_feedback_learning or not self.feedback_kb:
-            print("! 反馈学习功能未启用，无法添加人工反馈")
+            print("! Feedback learning feature not enabled, cannot add human feedback")
             return None
         
         print(f"\n{'='*60}")
-        print(f"添加人工反馈到知识库...")
+        print(f"Adding human feedback to knowledge base...")
         print(f"{'='*60}")
-        print(f"功能描述: {feature_description[:80]}...")
-        print(f"原始分类: {original_assessment}")
-        print(f"人工修正: {human_assessment}")
+        print(f"Feature description: {feature_description[:80]}...")
+        print(f"Original classification: {original_assessment}")
+        print(f"Human correction: {human_assessment}")
         
-        # 添加到知识库
+        # Add to knowledge base
         feedback_case = self.feedback_kb.add_feedback(
             feature_description=feature_description,
             original_assessment=original_assessment,
             human_assessment=human_assessment,
-            metadata=metadata
+            metadata=metadata,
+            reasoning=reasoning
         )
         
-        print(f"✓ 成功添加反馈案例 #{feedback_case['id']}")
+        print(f"✓ Successfully added feedback case #{feedback_case['id']}")
         
-        # 获取知识库统计信息
+        # Get knowledge base statistics
         stats = self.feedback_kb.get_statistics()
-        print(f"\n知识库统计:")
-        print(f"  总案例数: {stats['total_cases']}")
-        print(f"  修正率: {stats['correction_rate']:.2%}")
+        print(f"\nKnowledge Base Statistics:")
+        print(f"  Total cases: {stats['total_cases']}")
+        print(f"  Correction rate: {stats['correction_rate']:.2%}")
         
         return feedback_case
 
 
-def main():
-    """
-    主函数演示置信度评估Agent的工作流程
-    """
-    print("=== 置信度评估Agent - 工作流程演示 ===\n")
+# def main():
+#     """
+#     Main function demonstrating the workflow of confidence evaluation Agent
+#     """
+#     print("=== Confidence Evaluation Agent - Workflow Demonstration ===\n")
     
-    # 初始化法律分类器和置信度评估Agent
-    try:
-        legal_classifier = OptimizedLegalClassifier(
-            graph_db_path="/Users/yanjin/vscode/ReguLLM/legal_compliance_db1"  # 请根据实际路径修改
-        )
-        confidence_agent = ConfidenceAgent(
-            confidence_threshold=0.7,
-            legal_classifier=legal_classifier
-        )
-        print("✓ Agent初始化成功\n")
-    except Exception as e:
-        print(f"✗ Agent初始化失败: {e}")
-        return
+#     # Initialize legal classifier and confidence evaluation Agent
+#     try:
+#         legal_classifier = OptimizedLegalClassifier(
+#             graph_db_path="/Users/yanjin/vscode/ReguLLM/legal_compliance_db1"  # Please modify according to actual path
+#         )
+#         confidence_agent = ConfidenceAgent(
+#             confidence_threshold=0.7,
+#             legal_classifier=legal_classifier
+#         )
+#         print("✓ Agent initialization successful\n")
+#     except Exception as e:
+#         print(f"✗ Agent initialization failed: {e}")
+#         return
     
-    # 测试数据 - 包含不同置信度的案例
-    test_cases = [
-        # 高置信度案例
-        "Curfew login blocker with ASL and GH for Utah minors: To comply with the Utah Social Media Regulation Act, we are implementing a curfew-based login restriction for users under 18. The system uses ASL to detect minor accounts and routes enforcement through GH to apply only within Utah boundaries.",
+#     # Test data - including cases with different confidence levels
+#     test_cases = [
+#         # High confidence case
+#         "Curfew login blocker with ASL and GH for Utah minors: To comply with the Utah Social Media Regulation Act, we are implementing a curfew-based login restriction for users under 18. The system uses ASL to detect minor accounts and routes enforcement through GH to apply only within Utah boundaries.",
         
-        # 中等置信度案例
-        "Content visibility lock with NSP for EU DSA: To meet the transparency expectations of the EU Digital Services Act, we are introducing a visibility lock for flagged user-generated content labeled under NSP. When such content is detected, a soft Softblock is applied.",
+#         # Medium confidence case
+#         "Content visibility lock with NSP for EU DSA: To meet the transparency expectations of the EU Digital Services Act, we are introducing a visibility lock for flagged user-generated content labeled under NSP. When such content is detected, a soft Softblock is applied.",
         
-        # 低置信度案例
-        "Universal PF deactivation on guest mode: By default, PF will be turned off for all users browsing in guest mode."
-    ]
+#         # Low confidence case
+#         "Universal PF deactivation on guest mode: By default, PF will be turned off for all users browsing in guest mode."
+#     ]
     
-    # 处理测试案例
-    results = []
-    for i, feature in enumerate(test_cases):
-        print(f"\n测试案例 {i+1}/{len(test_cases)}")
+#     # Process test cases
+#     results = []
+#     for i, feature in enumerate(test_cases):
+#         print(f"\nTest Case {i+1}/{len(test_cases)}")
         
-        # 执行完整处理流程
-        result = confidence_agent.process_feature(feature)
+#         # Execute complete processing workflow
+#         result = confidence_agent.process_feature(feature)
         
-        # 保存结果
-        results.append(result)
-        print(f"{'='*80}")
+#         # Save result
+#         results.append(result)
+#         print(f"{'='*80}")
     
-    # 保存结果到JSON文件
-    try:
-        with open('confidence_evaluation_results.json', 'w', encoding='utf-8') as f:
-            json.dump(results, f, indent=4, ensure_ascii=False, default=str)
-        print(f"\n✓ 结果已保存到 confidence_evaluation_results.json")
-        print(f"✓ 共处理 {len(results)} 个测试案例")
-    except Exception as e:
-        print(f"\n✗ 保存结果失败: {e}")
+#     # Save results to JSON file
+#     try:
+#         with open('confidence_evaluation_results.json', 'w', encoding='utf-8') as f:
+#             json.dump(results, f, indent=4, ensure_ascii=False, default=str)
+#         print(f"\n✓ Results saved to confidence_evaluation_results.json")
+#         print(f"✓ Processed {len(results)} test cases")
+#     except Exception as e:
+#         print(f"\n✗ Failed to save results: {e}")
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
