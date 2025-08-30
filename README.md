@@ -97,13 +97,15 @@ python app.py
 
 ```
 .
-├── build_knowledge_base.py         # Main script to build/query the vector store
-├── main.py                     # Main infer module
+├── build_knowledge_base.py    # Main script to build/query the vector store
+├── main.py                    # Main infer module
 ├── app.py                     # Base API for frontend and backend connection
 ├── requirements.txt           # Python dependencies
 ├── README.md                  # This file
 ├── confidence_agent.py        # Self check module
 └── interface.html             # Frontend
+
+```
 
 **Additional files** (for experiments/extensions):
 
